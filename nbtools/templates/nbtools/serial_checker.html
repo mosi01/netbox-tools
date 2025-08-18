@@ -1,0 +1,38 @@
+{% extends 'base/layout.html' %}
+{% block content %}
+<h2>Serial Checker</h2>
+
+<p><strong>Next Available:</strong> {{ next_number }}</p>
+<p><strong>Preview:</strong> {{ preview_number }}</p>
+<p><strong>Available Count:</strong> {{ available_count }}</p>
+<p><strong>Taken Count:</strong> {{ taken_count }}</p>
+<p><strong>Total Count:</strong> {{ total_count }}</p>
+
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="index" value="{{ index }}">
+    <button type="submit" name="check" class="btn btn-primary">Check</button>
+    <button type="submit" name="next" class="btn btn-secondary">Next</button>
+    <button type="submit" name="show_list" class="btn btn-info">Show List</button>
+</form>
+
+{% if show_list %}
+    <h3>Serial List ({{ lowest_taken }} to {{ highest_taken|add:"1000"|slice:":4" }})</h3>
+    <table class="table table-hover table-bordered">
+        <thead>
+            <tr>
+                <th>Serial</th>
+                <th>Server Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in list_table %}
+                <tr class="{% if row.name != 'Available' %}table-danger{% else %}table-success{% endif %}">
+                    <td>{{ row.serial }}</td>
+                    <td>{{ row.name }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

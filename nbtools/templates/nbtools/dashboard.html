@@ -1,0 +1,17 @@
+{% extends 'base/layout.html' %}
+
+{% block header %}
+<h1>NetBox Tools Dashboard</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container">
+  <h2>Resource Summary</h2>
+
+  | Resource             | Count          |
+  | -------------------- | -------------- |
+  | Devices              | {{ device_count }}       |
+  | Virtual Machines     | {{ vm_count }}          |
+
+</div>
+{% endblock content %}

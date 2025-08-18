@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: netbox-tools
+Version: 0.1.0
+Summary: Collection of tools for NetBox
+Author-email: Simon Möller Ahlquist <simon.moller@lindab.com>
+License: MIT License
+        
+        Copyright (c) 2025 Simon Möller Ahlquist
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction...
+        
+        [Full MIT license text here → https://opensource.org/licenses/MIT]
+        
+Project-URL: Homepage, https://github.com/mosi01/netbox-tools
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# NetBox Tools Plugin
+
+A plugin for NetBox that adds utilities like:
+
+- Documentation Reviewer
+- Serial Number Checker
+- Custom Jobs and Views
+
+## Installation
+
+```bash
+pip install git+https://github.com/yourusername/netbox-tools.git
+
+then add to your NetBox configuration:
+
+PLUGINS = ['nbtools']
+
+Compatibility:
+Tested with Netbox 4.3.5 and above.

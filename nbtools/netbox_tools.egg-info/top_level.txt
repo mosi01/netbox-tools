@@ -1,0 +1,3 @@
+migrations
+static
+templates

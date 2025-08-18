@@ -1,0 +1,11 @@
+name: nbtools
+package: nbtools
+version: 0.1.0
+author: Simon Möller Ahlquist
+description: Collection of tools for NetBox
+install_method: pip
+
+min_netbox_version: 4.3.5
+max_netbox_version: 4.3.999
+
+base_url: tools
