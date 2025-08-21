@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: netbox-tools
-Version: 0.1.1
+Version: 0.3.0
 Summary: Collection of tools for NetBox
 Author-email: Simon Möller Ahlquist <simon.moller@lindab.com>
 License: MIT License

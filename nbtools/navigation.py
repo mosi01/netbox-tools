@@ -31,6 +31,11 @@ menu = PluginMenu(
                     link_text='Serial Number Checker',
                     auth_required=True,
                 ),
+                PluginMenuItem(
+                    link='plugins:nbtools:prefix_validator',
+                    link_text='Prefix Validator',
+                    auth_required=True,
+                ),
             ),
         ),
     ),

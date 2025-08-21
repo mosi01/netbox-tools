@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-tools"
-version = "0.1.0"
+version = "0.3.0"
 description = "Collection of tools for NetBox"
 authors = [
     { name = "Simon Möller Ahlquist", email = "simon.moller@lindab.com" },
@@ -18,7 +18,8 @@ dependencies = []
 Homepage = "https://github.com/mosi01/netbox-tools"
 
 [tool.setuptools.packages.find]
-where = ["nbtools"]
+where = ["."]
+include = ["nbtools*"]
 
 [tool.setuptools.package-data]
 "nbtools" = ["templates/**/*", "static/**/*"]
