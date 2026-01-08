@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.views import View
 from datetime import date, timedelta
 from django.db import transaction
+from django.http import HttpResponse
 
 from dcim.models import Device
 from virtualization.models import VirtualMachine
@@ -16,13 +17,18 @@ logger = logging.getLogger("nbtools")
 import re
 
 def dashboard(request):
-	
+
 	context = {
 		"device_count": Device.objects.count(),
 		"vm_count": VirtualMachine.objects.count(),
 	}
 
 	return render(request, "nbtools/dashboard.html", context)
+
+
+def prefix_validator_view(request):
+    return HttpResponse("Prefix Validator feature coming soon!")
+
 
 def documentation_reviewer(request):
     try:
@@ -38,11 +44,11 @@ def documentation_reviewer(request):
                 logger.debug(f"Marking reviewed for IDs: {reviewed_ids}")
 
                 count = 0
-				today_iso = timezone.now().date().isoformat(
+                today_iso = timezone.now().date().isoformat()
                 for model in [Device, VirtualMachine]:
                     for obj in model.objects.filter(pk__in=reviewed_ids):
                         obj.custom_field_data["reviewed"] = True
-						obj.custom_field_data["latest_update"] = today_iso
+                        obj.custom_field_data["latest_update"] = today_iso
                         obj.save()
                         count += 1
 
@@ -274,4 +280,9 @@ class SerialChecker(View):
         }
 
         return render(request, self.template_name, context)
+
+class LindabIPListView(View):
+    def get(self, request):
+        return HttpResponse("Lindab IP Checker coming soon!")
+
 
