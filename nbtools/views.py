@@ -41,6 +41,7 @@ def documentation_reviewer(request):
                 for model in [Device, VirtualMachine]:
                     for obj in model.objects.filter(pk__in=reviewed_ids):
                         obj.custom_field_data["reviewed"] = True
+						obj.custom_field_data["latest_update"] = today
                         obj.save()
                         count += 1
 
