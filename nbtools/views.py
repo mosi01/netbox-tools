@@ -38,10 +38,11 @@ def documentation_reviewer(request):
                 logger.debug(f"Marking reviewed for IDs: {reviewed_ids}")
 
                 count = 0
+				today_iso = timezone.now().date().isoformat(
                 for model in [Device, VirtualMachine]:
                     for obj in model.objects.filter(pk__in=reviewed_ids):
                         obj.custom_field_data["reviewed"] = True
-						obj.custom_field_data["latest_update"] = today
+						obj.custom_field_data["latest_update"] = today_iso
                         obj.save()
                         count += 1
 
