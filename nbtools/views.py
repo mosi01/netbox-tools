@@ -287,8 +287,6 @@ class DocumentationReviewerView(View):
 
 
 
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -302,14 +300,15 @@ class VMToolView(View):
             "vms": VirtualMachine.objects.all(),
             "vrfs": VRF.objects.all(),
             "prefixes": [],
-            "popup_message": ""
+            "popup_message": "",
+            "info_message": ""
         })
 
     def post(self, request):
         action = request.POST.get("action")
 
         if action == "cancel":
-            return render(request, self.template_name, {"mode": "initial", "popup_message": ""})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": "", "info_message": ""})
 
         if action == "new_vm":
             return render(request, self.template_name, {
@@ -317,7 +316,8 @@ class VMToolView(View):
                 "roles": DeviceRole.objects.all(),
                 "sites": Site.objects.all(),
                 "clusters": Cluster.objects.all(),
-                "popup_message": ""
+                "popup_message": "",
+                "info_message": ""
             })
 
         if action == "create_vm":
@@ -346,7 +346,7 @@ class VMToolView(View):
             )
 
             popup_message = f'{vm.name} created successfully!'
-            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": ""})
 
         except Exception as e:
             return render(request, self.template_name, {
@@ -359,7 +359,8 @@ class VMToolView(View):
                 "role_id": role_id,
                 "site_id": site_id,
                 "cluster_id": cluster_id,
-                "popup_message": f"Failed to create VM: {e}"
+                "popup_message": f"Failed to create VM: {e}",
+                "info_message": ""
             })
 
     def handle_existing_vm(self, request):
@@ -372,6 +373,7 @@ class VMToolView(View):
 
         interfaces = []
         selected_prefix = None
+        info_message = ""
 
         if vm_id:
             try:
@@ -385,11 +387,13 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # Fetch Prefix Parent
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
                             selected_vrf = str(prefix_obj.vrf.id)
+
+                        # Build info message
+                        info_message = f"For the selected NIC, fetched Primary IP: {ip_address_display}, VRF: {prefix_obj.vrf.name if prefix_obj else 'None'}, IP Prefix: {prefix_obj.prefix if prefix_obj else 'None'}"
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
@@ -412,7 +416,8 @@ class VMToolView(View):
             "selected_prefix": selected_prefix or prefix_id,
             "ip_address": ip_address_display,
             "auto_ip": auto_ip,
-            "popup_message": ""
+            "popup_message": "",
+            "info_message": info_message
         })
 
     def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf):
@@ -452,10 +457,11 @@ class VMToolView(View):
                 vm.save()
 
             popup_message = f'{vm.name} was successfully updated and assigned to IP: {ip_address}'
-            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": ""})
 
         except Exception as e:
             return self.handle_existing_vm(request)
+
 
 
 class SerialChecker(View):
