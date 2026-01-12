@@ -1,24 +1,30 @@
 
 {% extends 'base/layout.html' %}
+
 {% block header %}
-<h1>IP Prefix Checker</h1>
+    <h1>IP Prefix Checker</h1>
 {% endblock header %}
 
 {% block content %}
 <div class="container">
+    <!-- Form for selecting VRF and Prefix -->
     <form method="post">
         {% csrf_token %}
         <div class="mb-3">
+            <!-- Dropdown for VRF selection -->
             <label for="vrf" class="form-label">VRF:</label>
             <select name="vrf" id="vrf" class="form-select">
                 <option value="">Select VRF</option>
                 {% for vrf in vrfs %}
-                    <option value="{{ vrf.id }}" {% if vrf.id|stringformat:"s" == selected_vrf %}selected{% endif %}>{{ vrf.name }}</option>
+                    <option value="{{ vrf.id }}" {% if vrf.id|stringformat:"s" == selected_vrf %}selected{% endif %}>
+                        {{ vrf.name }}
+                    </option>
                 {% endfor %}
             </select>
         </div>
 
         <div class="mb-3">
+            <!-- Dropdown for Prefix selection -->
             <label for="prefix" class="form-label">Prefix:</label>
             <select name="prefix" id="prefix" class="form-select" {% if not prefixes %}disabled{% endif %}>
                 <option value="">Select Prefix</option>
@@ -28,70 +34,77 @@
             </select>
         </div>
 
+        <!-- Checkbox for Azure option -->
         <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" name="azure" id="azure" {% if request.POST.azure %}checked{% endif %}>
             <label class="form-check-label" for="azure">Azure</label>
         </div>
 
+        <!-- Buttons for checking prefixes -->
         <button type="submit" name="action" value="check_one" id="check-btn" class="btn btn-primary" disabled>Check</button>
         {% if selected_vrf %}
-        <button type="submit" name="action" value="check_all" id="check-all-btn" class="btn btn-secondary">Check All Prefixes</button>
+            <button type="submit" name="action" value="check_all" id="check-all-btn" class="btn btn-secondary">Check All Prefixes</button>
         {% endif %}
     </form>
 
-
     {% if results %}
-    <table class="table mt-4">
-        <thead>
-            <tr>
-                <th>Prefix</th>
-                <th>Total Addresses</th>
-                <th>Available Addresses</th>
-                <th>Next Available Address</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in results %}
-            <tr>
-                <td><a href="{{ row.url }}" target="_blank">{{ row.prefix }}</a></td>  <!-- ✅ Clickable -->
-                <td>{{ row.total }}</td>
-                <td>{{ row.available }}</td>
-                <td>{{ row.next }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <!-- Table displaying prefix details -->
+        <table class="table mt-4">
+            <thead>
+                <tr>
+                    <th>Prefix</th>
+                    <th>Total Addresses</th>
+                    <th>Available Addresses</th>
+                    <th>Next Available Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                    <tr>
+                        <td>{{ row.url }}{{ row.prefix }}</a></td>
+                        <td>{{ row.total }}</td>
+                        <td>{{ row.available }}</td>
+                        <td>{{ row.next }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% endif %}
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const vrfSelect = document.getElementById("vrf");
-    const prefixSelect = document.getElementById("prefix");
-    const checkBtn = document.getElementById("check-btn");
+    document.addEventListener("DOMContentLoaded", function () {
+        // Selectors for dropdowns and button
+        const vrfSelect = document.getElementById("vrf");
+        const prefixSelect = document.getElementById("prefix");
+        const checkBtn = document.getElementById("check-btn");
 
-    function togglePrefixDropdown() {
-        if (vrfSelect.value) {
-            prefixSelect.disabled = false;
-        } else {
-            prefixSelect.disabled = true;
-            prefixSelect.value = "";
-            checkBtn.disabled = true;
+        // Enables/disables prefix dropdown based on VRF selection
+        function togglePrefixDropdown() {
+            if (vrfSelect.value) {
+                prefixSelect.disabled = false;
+            } else {
+                prefixSelect.disabled = true;
+                prefixSelect.value = "";
+                checkBtn.disabled = true;
+            }
         }
-    }
 
-    function toggleCheckButton() {
-        checkBtn.disabled = !(vrfSelect.value && prefixSelect.value);
-    }
+        // Enables/disables check button based on selections
+        function toggleCheckButton() {
+            checkBtn.disabled = !(vrfSelect.value && prefixSelect.value);
+        }
 
-    vrfSelect.addEventListener("change", function () {
-        this.form.submit(); // Reload to repopulate prefixes
+        // Event listeners for dropdown changes
+        vrfSelect.addEventListener("change", function () {
+            this.form.submit(); // Reload to repopulate prefixes
+        });
+
+        prefixSelect.addEventListener("change", toggleCheckButton);
+
+        // Initialize UI state
+        togglePrefixDropdown();
+        toggleCheckButton();
     });
-
-    prefixSelect.addEventListener("change", toggleCheckButton);
-
-    togglePrefixDropdown();
-    toggleCheckButton();
-});
 </script>
 {% endblock content %}
