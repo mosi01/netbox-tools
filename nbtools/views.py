@@ -298,6 +298,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -365,31 +366,8 @@ class VMToolView(View):
                     "cluster_id": cluster_id,
                 })
 
-        # Show Existing VM form (or reload after VM selection)
-        elif action == "existing_vm" or (action == "apply_changes" and request.POST.get("vm")):
-            vm_id = request.POST.get("vm")
-            interfaces = []
-            if vm_id:
-                try:
-                    vm = VirtualMachine.objects.get(id=vm_id)
-                    interfaces = list(vm.interfaces.all())  # Fetch VM interfaces
-                except VirtualMachine.DoesNotExist:
-                    interfaces = []
-
-            return render(request, self.template_name, {
-                "mode": "existing_vm",
-                "vms": VirtualMachine.objects.all(),
-                "prefixes": Prefix.objects.all(),
-                "interfaces": interfaces,
-                "selected_vm": vm_id,
-                "selected_interface": request.POST.get("interface"),
-                "selected_prefix": request.POST.get("prefix"),
-                "ip_address": request.POST.get("ip_address"),
-                "auto_ip": request.POST.get("auto_ip") == "on",
-            })
-
-        # Apply changes to Existing VM
-        elif action == "apply_changes":
+        # Apply changes FIRST to avoid being intercepted by reload logic
+        if action == "apply_changes":
             vm_id = request.POST.get("vm")
             interface_id = request.POST.get("interface")
             prefix_id = request.POST.get("prefix")
@@ -405,13 +383,13 @@ class VMToolView(View):
                 vm = VirtualMachine.objects.get(id=vm_id)
                 prefix = Prefix.objects.get(id=prefix_id)
 
-                # Determine interface: if missing or "new", create one
+                # Interface handling
                 if not interface_id or interface_id == "new":
                     interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
 
-                # Determine IP
+                # IP handling
                 if auto_ip:
                     network = ip_network(prefix.prefix)
                     assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
@@ -424,7 +402,6 @@ class VMToolView(View):
                         raise ValueError("Invalid IP format.")
                     ip_address = f"{ip_address}/32"
 
-                # Create IP and assign
                 with transaction.atomic():
                     ip_obj = IPAddress.objects.create(address=ip_address)
                     interface.ip_addresses.add(ip_obj)
@@ -433,7 +410,7 @@ class VMToolView(View):
 
                 messages.success(
                     request,
-                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    f'{vm.get_absolute_url()}{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                     extra_tags="safe"
                 )
                 return render(request, self.template_name, {"mode": "initial"})
@@ -459,8 +436,31 @@ class VMToolView(View):
                     "auto_ip": auto_ip,
                 })
 
-        # Fallback
+        # Show Existing VM form (reload after VM selection)
+        if action == "existing_vm" or request.POST.get("vm"):
+            vm_id = request.POST.get("vm")
+            interfaces = []
+            if vm_id:
+                try:
+                    vm = VirtualMachine.objects.get(id=vm_id)
+                    interfaces = list(vm.interfaces.all())
+                except VirtualMachine.DoesNotExist:
+                    interfaces = []
+
+            return render(request, self.template_name, {
+                "mode": "existing_vm",
+                "vms": VirtualMachine.objects.all(),
+                "prefixes": Prefix.objects.all(),
+                "interfaces": interfaces,
+                "selected_vm": vm_id,
+                "selected_interface": request.POST.get("interface"),
+                "selected_prefix": request.POST.get("prefix"),
+                "ip_address": request.POST.get("ip_address"),
+                "auto_ip": request.POST.get("auto_ip") == "on",
+            })
+
         return render(request, self.template_name, {"mode": "initial"})
+
 
 
 class SerialChecker(View):
