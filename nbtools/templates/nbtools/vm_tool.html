@@ -1,4 +1,3 @@
-
 {% extends 'base/layout.html' %}
 {% block header %}
 <h1>VM Tool</h1>
@@ -22,6 +21,7 @@
     {% endif %}
 
     {% if mode == "new_vm" %}
+        <!-- New VM Form -->
         <h4>Create New VM</h4>
         <form method="post">
             {% csrf_token %}
@@ -38,74 +38,63 @@
     {% endif %}
 
     {% if mode == "existing_vm" %}
+        <!-- Existing VM Form -->
         <h4>Modify Existing VM</h4>
-        <form method="post" id="existing-vm-form">
+        <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="apply_changes">
-            <div class="mb-3"><label>Virtual Machine</label><select id="vm" name="vm" class="form-select"><option value="">Select VM</option>{% for vm in vms %}<option value="{{ vm.id }}">{{ vm.name }}</option>{% endfor %}</select></div>
-            <div class="mb-3"><label>Network Interface</label><select id="interface" name="interface" class="form-select"><option value="">Select Interface</option></select></div>
-            <div class="mb-3"><label>IP Prefix</label><select id="prefix" name="prefix" class="form-select"><option value="">Select Prefix</option>{% for prefix in prefixes %}<option value="{{ prefix.id }}">{{ prefix.prefix }}</option>{% endfor %}</select></div>
-            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="auto_ip" name="auto_ip"><label class="form-check-label">Pick next available IP</label></div>
-            <div class="mb-3"><label>Primary IP (x.x.x.x)</label><input type="text" id="ip_address" name="ip_address" class="form-control"></div>
-            <button type="submit" id="apply-btn" class="btn btn-success" disabled>Make Changes</button>
+
+            <!-- VM Dropdown -->
+            <div class="mb-3">
+                <label>Virtual Machine</label>
+                <select name="vm" id="vm" class="form-select" onchange="this.form.submit()">
+                    <option value="">Select VM</option>
+                    {% for vm in vms %}
+                        <option value="{{ vm.id }}" {% if vm.id|stringformat:"s" == selected_vm %}selected{% endif %}>{{ vm.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Interface Dropdown -->
+            <div class="mb-3">
+                <label>Network Interface</label>
+                <select name="interface" id="interface" class="form-select" {% if not interfaces %}disabled{% endif %}>
+                    {% if interfaces %}
+                        {% for iface in interfaces %}
+                            <option value="{{ iface.id }}" {% if iface.id|stringformat:"s" == selected_interface %}selected{% endif %}>{{ iface.name }}</option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="new">Create a new Interface</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <!-- Prefix Dropdown -->
+            <div class="mb-3">
+                <label>IP Prefix</label>
+                <select name="prefix" id="prefix" class="form-select">
+                    <option value="">Select Prefix</option>
+                    {% for prefix in prefixes %}
+                        <option value="{{ prefix.id }}" {% if prefix.id|stringformat:"s" == selected_prefix %}selected{% endif %}>{{ prefix.prefix }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Auto IP Checkbox -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="auto_ip" name="auto_ip" {% if auto_ip %}checked{% endif %}>
+                <label class="form-check-label">Pick next available IP</label>
+            </div>
+
+            <!-- Primary IP -->
+            <div class="mb-3">
+                <label>Primary IP (x.x.x.x)</label>
+                <input type="text" id="ip_address" name="ip_address" class="form-control" value="{{ ip_address|default:'' }}" {% if auto_ip %}disabled{% endif %}>
+            </div>
+
+            <button type="submit" class="btn btn-success">Make Changes</button>
             <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
         </form>
     {% endif %}
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const vmSelect = document.getElementById("vm");
-    const interfaceSelect = document.getElementById("interface");
-    const applyBtn = document.getElementById("apply-btn");
-    const ipInput = document.getElementById("ip_address");
-    const prefixSelect = document.getElementById("prefix");
-    const autoIpCheckbox = document.getElementById("auto_ip");
-
-    function toggleApplyButton() {
-        const vmFilled = vmSelect.value;
-        const ifaceFilled = interfaceSelect.value;
-        const prefixFilled = prefixSelect.value;
-        const ipFilled = autoIpCheckbox.checked || ipInput.value.trim() !== "";
-        applyBtn.disabled = !(vmFilled && ifaceFilled && prefixFilled && ipFilled);
-    }
-
-    vmSelect.addEventListener("change", function () {
-        const vmId = vmSelect.value;
-        interfaceSelect.innerHTML = '<option value="">Loading...</option>';
-        if (vmId) {
-            fetch(`/api/virtualization/interfaces/?virtual_machine=${vmId}`)
-                .then(response => response.json())
-                .then(data => {
-                    interfaceSelect.innerHTML = '';
-                    if (data.results.length > 0) {
-                        data.results.forEach(iface => {
-                            const option = document.createElement("option");
-                            option.value = iface.id;
-                            option.textContent = iface.name;
-                            interfaceSelect.appendChild(option);
-                        });
-                    } else {
-                        const option = document.createElement("option");
-                        option.value = "new";
-                        option.textContent = "Create a new Interface";
-                        interfaceSelect.appendChild(option);
-                    }
-                    toggleApplyButton(); // Recheck after update
-                });
-        } else {
-            interfaceSelect.innerHTML = '<option value="">Select Interface</option>';
-            toggleApplyButton();
-        }
-    });
-
-    autoIpCheckbox.addEventListener("change", function () {
-        ipInput.disabled = autoIpCheckbox.checked;
-        toggleApplyButton();
-    });
-
-    prefixSelect.addEventListener("change", toggleApplyButton);
-    ipInput.addEventListener("input", toggleApplyButton);
-});
-</script>
 {% endblock content %}
