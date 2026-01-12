@@ -8,11 +8,9 @@
 <div class="container">
     <!-- Popup message -->
     {% if popup_message %}
-        <div id="popup-message" class="alert alert-info" style="display:none;"></div>
-    {% endif %}
-    {% if error_message %}
-        <div class="alert alert-danger mt-3">{{ error_message }}</div>
-    {% endif %}
+        <div id="popup-message" class="alert alert-info" style="display:none;">
+            {{ popup_message }}
+        </div>
 
         <script>
             document.addEventListener("DOMContentLoaded", function () {
@@ -23,6 +21,11 @@
                 }
             });
         </script>
+    {% endif %}
+
+    <!-- error message -->
+    {% if error_message %}
+        <div class="alert alert-danger mt-3">{{ error_message }}</div>
     {% endif %}
 
     <!-- Info message -->
