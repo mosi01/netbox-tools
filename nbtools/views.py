@@ -5,6 +5,13 @@ from datetime import date, timedelta
 from django.db import transaction
 from django.http import HttpResponse
 
+
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from ipaddress import ip_network
+from ipam.models import Prefix, VRF, IPAddress
+
+
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 from django.contrib.contenttypes.models import ContentType
@@ -26,115 +33,228 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
-def prefix_validator_view(request):
-    return HttpResponse("Prefix Validator feature coming soon!")
 
 
-def documentation_reviewer(request):
-    try:
+method_decorator(csrf_exempt, name='dispatch')
+class IPPrefixCheckerView(View):
+    template_name = "nbtools/ip_prefix_checker.html"
+
+    def get(self, request):
+        vrfs = VRF.objects.all()
+        return render(request, self.template_name, {
+            "vrfs": vrfs,
+            "prefixes": [],
+            "selected_vrf": None,
+            "results": []
+        })
+
+    def post(self, request):
+        vrfs = VRF.objects.all()
+        prefixes = []
+        results = []
+
+        selected_vrf = request.POST.get("vrf")
+        selected_prefix = request.POST.get("prefix")
+        action = request.POST.get("action")
+        skip_azure = bool(request.POST.get("azure"))
+
+        if selected_vrf:
+            prefixes = Prefix.objects.filter(vrf_id=selected_vrf)
+
+        if action == "check_one" and selected_prefix:
+            prefix_obj = Prefix.objects.get(id=selected_prefix)
+            results = [self.calculate_prefix_stats(prefix_obj, skip_azure)]
+
+        elif action == "check_all" and selected_vrf:
+            results = [self.calculate_prefix_stats(pfx, skip_azure) for pfx in prefixes]
+
+        return render(request, self.template_name, {
+            "vrfs": vrfs,
+            "prefixes": prefixes,
+            "selected_vrf": selected_vrf,
+            "results": results
+        })
+
+    def calculate_prefix_stats(self, prefix_obj, skip_azure=False):
+        network = ip_network(prefix_obj.prefix)
+        total_addresses = network.num_addresses
+
+        assigned_ips = IPAddress.objects.filter(address__net_contained=prefix_obj.prefix)
+        assigned_set = {str(ip.address.ip) for ip in assigned_ips}
+
+        available_count = total_addresses - len(assigned_set)
+
+        next_available = None
+        hosts = list(network.hosts())
+        start_index = 1 + (5 if skip_azure else 0)
+
+        for ip in hosts[start_index:]:
+            if str(ip) not in assigned_set:
+                next_available = str(ip)
+                break
+
+        return {
+            "prefix": prefix_obj.prefix,
+            "url": prefix_obj.get_absolute_url(),
+            "total": total_addresses,
+            "available": available_count,
+            "next": next_available or "None available"
+        }
+
+
+
+
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PrefixValidatorView(View):
+    template_name = "nbtools/prefix_validator.html"
+
+    def get(self, request):
+        vrfs = VRF.objects.all()
+        return render(request, self.template_name, {
+            "vrfs": vrfs,
+            "results": []
+        })
+
+    def post(self, request):
+        vrfs = VRF.objects.all()
+        results = []
+
+        primary_id = request.POST.get("primary_vrf")
+        secondary_id = request.POST.get("secondary_vrf")
+
+        if primary_id and secondary_id:
+            primary_prefixes = Prefix.objects.filter(vrf_id=primary_id).exclude(status__in=["container", "deprecated"])
+            secondary_prefixes = Prefix.objects.filter(vrf_id=secondary_id).exclude(status__in=["container", "deprecated"])
+
+            for pfx1 in primary_prefixes:
+                net1 = ip_network(pfx1.prefix)
+                active_overlaps = []
+                reserved_overlaps = []
+
+                for pfx2 in secondary_prefixes:
+                    net2 = ip_network(pfx2.prefix)
+                    if net1.overlaps(net2):
+                        if pfx2.status == "reserved":
+                            reserved_overlaps.append(f"{pfx2.prefix} (Reserved)")
+                        else:
+                            active_overlaps.append(f"{pfx2.prefix} ({pfx2.status.capitalize()})")
+
+                results.append({
+                    "prefix": f"{pfx1.prefix} ({pfx1.status.capitalize()})",
+                    "active_overlaps": active_overlaps,
+                    "reserved_overlaps": reserved_overlaps
+                })
+
+        return render(request, self.template_name, {
+            "vrfs": vrfs,
+            "results": results
+        })
+
+
+
+
+
+class DocumentationReviewerView(View):
+    template_name = "nbtools/documentation_reviewer.html"
+    cutoff_date = date(2025, 1, 1)
+
+    def get(self, request):
+        return self._render_page(request)
+
+    def post(self, request):
+        action = request.POST.get("action", "")
+        search_query = request.POST.get("search", "").strip()
+
         try:
-            valid_objects = 0
-            flagged_objects = []
-            search_query = request.POST.get("search", "").strip()
-            action = request.POST.get("action", "")
-
-            # Action: Mark Reviewed
             if action == "mark_reviewed":
-                reviewed_ids = request.POST.getlist("reviewed_ids")
-                logger.debug(f"Marking reviewed for IDs: {reviewed_ids}")
+                self._mark_reviewed(request)
 
-                count = 0
-                today_iso = timezone.now().date().isoformat()
-                for model in [Device, VirtualMachine]:
-                    for obj in model.objects.filter(pk__in=reviewed_ids):
-                        obj.custom_field_data["reviewed"] = True
-                        obj.custom_field_data["latest_update"] = today_iso
-                        obj.save()
-                        count += 1
-
-                messages.success(request, f"{count} object{'s' if count != 1 else ''} marked as reviewed.")
-
-            cutoff_date = date(2025, 1, 1)
+            elif action == "check_fields":
+                self._check_fields()
 
         except Exception as e:
-            logger.exception(f"Error in first: {e}")
+            logger.exception(f"Error in post action: {e}")
 
-        def set_custom_fields_in_batches(queryset, cutoff_date):
-            BATCH_SIZE = 100
-            DELAY_BETWEEN_BATCHES = 0.5  # seconds
-            updates = []
+        return self._render_page(request, search_query)
 
-            for obj in queryset:
-                try:
-                    created_date = obj.created.date()
-                    capped_date = max(created_date, cutoff_date)
+    def _mark_reviewed(self, request):
+        reviewed_ids = request.POST.getlist("reviewed_ids")
+        logger.debug(f"Marking reviewed for IDs: {reviewed_ids}")
 
-                    obj.custom_field_data["latest_update"] = capped_date.isoformat()
-                    obj.custom_field_data["reviewed"] = created_date >= (timezone.now().date() - timedelta(days=90))
+        count = 0
+        today_iso = timezone.now().date().isoformat()
+        for model in [Device, VirtualMachine]:
+            for obj in model.objects.filter(pk__in=reviewed_ids):
+                obj.custom_field_data["reviewed"] = True
+                obj.custom_field_data["latest_update"] = today_iso
+                obj.save()
+                count += 1
 
-                    updates.append(obj)
-                except Exception as e:
-                    logger.exception(f"Error preparing {obj.name}: {e}")
+        messages.success(request, f"{count} object{'s' if count != 1 else ''} marked as reviewed.")
 
-            total = len(updates)
-            logger.info(f"Starting batch update for {total} objects...")
+    def _check_fields(self):
+        for model in [Device, VirtualMachine]:
+            queryset = model.objects.exclude(
+                custom_field_data__has_key="latest_update"
+            ).union(
+                model.objects.exclude(custom_field_data__has_key="reviewed")
+            )
+            self._set_custom_fields_in_batches(queryset)
 
-            for i in range(0, total, BATCH_SIZE):
-                batch = updates[i:i + BATCH_SIZE]
-                try:
-                    with transaction.atomic():
-                        for obj in batch:
-                            obj.save()
-                    logger.info(f"Batch {i // BATCH_SIZE + 1}: Saved {len(batch)} objects")
-                except Exception as e:
-                    logger.exception(f"Error saving batch {i // BATCH_SIZE + 1}: {e}")
+    def _set_custom_fields_in_batches(self, queryset):
+        BATCH_SIZE = 100
+        DELAY_BETWEEN_BATCHES = 0.5
+        updates = []
 
-                time.sleep(DELAY_BETWEEN_BATCHES)
-
-            logger.info("Batch update complete.")
-
-
-        def set_defaults(obj):
+        for obj in queryset:
             try:
                 created_date = obj.created.date()
-                capped_date = max(created_date, cutoff_date)
+                capped_date = max(created_date, self.cutoff_date)
 
-                # Set custom fields directly
                 obj.custom_field_data["latest_update"] = capped_date.isoformat()
                 obj.custom_field_data["reviewed"] = created_date >= (timezone.now().date() - timedelta(days=90))
 
-                obj.save()
-
-                refreshed = type(obj).objects.get(pk=obj.pk)
-                logger.debug(f"{obj.name}: After save → custom_field_data={refreshed.custom_field_data}")
+                updates.append(obj)
             except Exception as e:
-                logger.exception(f"Error in set_defaults for {obj.name}: {e}")
+                logger.exception(f"Error preparing {obj.name}: {e}")
 
+        total = len(updates)
+        logger.info(f"Starting batch update for {total} objects...")
 
-        # Action: Check Fields
-        if action == "check_fields":
-            for model in [Device, VirtualMachine]:
-                queryset = model.objects.exclude(
-                    custom_field_data__has_key="latest_update"
-                ).union(
-                    model.objects.exclude(custom_field_data__has_key="reviewed")
-                )
-                set_custom_fields_in_batches(queryset, cutoff_date)
+        for i in range(0, total, BATCH_SIZE):
+            batch = updates[i:i + BATCH_SIZE]
+            try:
+                with transaction.atomic():
+                    for obj in batch:
+                        obj.save()
+                logger.info(f"Batch {i // BATCH_SIZE + 1}: Saved {len(batch)} objects")
+            except Exception as e:
+                logger.exception(f"Error saving batch {i // BATCH_SIZE + 1}: {e}")
 
-        # Always refresh flagged list
+            time.sleep(DELAY_BETWEEN_BATCHES)
+
+        logger.info("Batch update complete.")
+
+    def _render_page(self, request, search_query=""):
+        flagged_objects = []
+        valid_objects = 0
+        missing_cf_data = False
+
         try:
             for model, label in [(Device, "Device"), (VirtualMachine, "Virtual Machine")]:
                 queryset = model.objects.iterator()
                 if search_query:
                     queryset = queryset.filter(name__icontains=search_query)
 
-
                 for obj in queryset:
                     latest_update = obj.custom_field_data.get("latest_update")
                     reviewed = obj.custom_field_data.get("reviewed")
 
                     try:
-                        outdated = date.fromisoformat(str(latest_update)) < cutoff_date
+                        outdated = date.fromisoformat(str(latest_update)) < self.cutoff_date
                     except Exception:
                         outdated = True
 
@@ -151,32 +271,25 @@ def documentation_reviewer(request):
                             "url": obj.get_absolute_url()
                         })
 
-                missing_cf_data = valid_objects == 0
+            missing_cf_data = valid_objects == 0
         except Exception as e:
-            logger.exception(f"Error in flagged list for loop: {e}\n{model,label,obj}")
-        try:
-            message = ""
-            if missing_cf_data:
-                message = (
-                    "No documentation data found. Please define the custom fields "
-                    "`cf_latest_update` (Date) and `cf_reviewed` (Boolean) in NetBox for Devices and Virtual Machines. "
-                    "These fields are required for the Documentation Reviewer to function."
-                )
+            logger.exception(f"Error building flagged list: {e}")
 
+        message = ""
+        if missing_cf_data:
+            message = (
+                "No documentation data found. Please define the custom fields "
+                "`cf_latest_update` (Date) and `cf_reviewed` (Boolean) in NetBox for Devices and Virtual Machines. "
+                "These fields are required for the Documentation Reviewer to function."
+            )
 
+        context = {
+            "flagged_objects": flagged_objects,
+            "search_query": search_query,
+            "message": message,
+        }
 
-            context = {
-                "flagged_objects": flagged_objects,
-                "search_query": search_query,
-                "message": message,
-            }
-        except Exception as e:
-            logger.exception(f"Error in context: {e}")
-
-        logger.debug("View logic executed successfully")
-        return render(request, "nbtools/documentation_reviewer.html", context)
-    except Exception as e:
-        logger.exception(f"Error in documentation_reviewer view: {e}")
+        return render(request, self.template_name, context)
 
 
 
@@ -281,8 +394,6 @@ class SerialChecker(View):
 
         return render(request, self.template_name, context)
 
-class LindabIPListView(View):
-    def get(self, request):
-        return HttpResponse("Lindab IP Checker coming soon!")
+
 
 
