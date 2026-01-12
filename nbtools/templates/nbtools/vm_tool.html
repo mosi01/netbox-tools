@@ -34,7 +34,7 @@
     {% endif %}
 
     {% if mode == "initial" %}
-        <p>This plugin will help you create a new VM or assign IP to an existing VM.</p>
+        <p>This tool will make it easier to create a new basic VM and to change/add NIC and IP to an existing VM.</p>
         <form method="post">
             {% csrf_token %}
             <button type="submit" name="action" value="new_vm" class="btn btn-primary">New VM</button>
