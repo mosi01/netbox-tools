@@ -292,13 +292,6 @@ class DocumentationReviewerView(View):
 
         return render(request, self.template_name, context)
 
-
-
-
-
-
-
-
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -315,11 +308,9 @@ class VMToolView(View):
     def post(self, request):
         action = request.POST.get("action")
 
-        # Cancel button returns to initial mode
         if action == "cancel":
             return render(request, self.template_name, {"mode": "initial"})
 
-        # Show New VM form
         if action == "new_vm":
             return render(request, self.template_name, {
                 "mode": "new_vm",
@@ -328,7 +319,6 @@ class VMToolView(View):
                 "clusters": Cluster.objects.all(),
             })
 
-        # Create New VM
         elif action == "create_vm":
             name = request.POST.get("name")
             role_id = request.POST.get("role")
@@ -349,7 +339,11 @@ class VMToolView(View):
                     status="active"
                 )
 
-                messages.success(request, f"VM '{vm.name}' created successfully!")
+                messages.success(
+                    request,
+                    f'VM <a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> created successfully!',
+                    extra_tags="safe"
+                )
                 return render(request, self.template_name, {"mode": "initial"})
 
             except Exception as e:
@@ -366,7 +360,6 @@ class VMToolView(View):
                     "cluster_id": cluster_id,
                 })
 
-        # Apply changes FIRST to avoid being intercepted by reload logic
         if action == "apply_changes":
             vm_id = request.POST.get("vm")
             interface_id = request.POST.get("interface")
@@ -383,13 +376,11 @@ class VMToolView(View):
                 vm = VirtualMachine.objects.get(id=vm_id)
                 prefix = Prefix.objects.get(id=prefix_id)
 
-                # Interface handling
                 if not interface_id or interface_id == "new":
                     interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
 
-                # IP handling
                 if auto_ip:
                     network = ip_network(prefix.prefix)
                     assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
@@ -410,7 +401,7 @@ class VMToolView(View):
 
                 messages.success(
                     request,
-                    f'{vm.get_absolute_url()}{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    f'<a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                     extra_tags="safe"
                 )
                 return render(request, self.template_name, {"mode": "initial"})
@@ -436,7 +427,6 @@ class VMToolView(View):
                     "auto_ip": auto_ip,
                 })
 
-        # Show Existing VM form (reload after VM selection)
         if action == "existing_vm" or request.POST.get("vm"):
             vm_id = request.POST.get("vm")
             interfaces = []
@@ -460,8 +450,6 @@ class VMToolView(View):
             })
 
         return render(request, self.template_name, {"mode": "initial"})
-
-
 
 class SerialChecker(View):
     template_name = 'nbtools/serial_checker.html'
