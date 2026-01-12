@@ -297,6 +297,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
