@@ -1,3 +1,4 @@
+
 {% extends 'base/layout.html' %}
 
 {% block header %}
@@ -6,13 +7,7 @@
 
 {% block content %}
 <div class="container">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">{{ message|safe }}</div>
-        {% endfor %}
-    {% endif %}
-
-    <!-- Popup message container -->
+    <!-- Popup message -->
     {% if popup_message %}
         <div id="popup-message" class="alert alert-info" style="display:none;">
             {{ popup_message }}
@@ -165,43 +160,18 @@ document.addEventListener("DOMContentLoaded", function () {
     const ipInput = document.getElementById("ip_address");
 
     function showInfoAndSubmit(actionValue) {
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "alert alert-info mt-3";
-        infoDiv.textContent = "Please wait... Gathering information.";
-        form.parentNode.insertBefore(infoDiv, form);
-
         const hiddenAction = document.createElement("input");
         hiddenAction.type = "hidden";
         hiddenAction.name = "action";
         hiddenAction.value = actionValue;
         form.appendChild(hiddenAction);
-
         form.submit();
     }
 
-    if (vmSelect) {
-        vmSelect.addEventListener("change", function () {
-            showInfoAndSubmit("existing_vm");
-        });
-    }
-
-    if (nicSelect) {
-        nicSelect.addEventListener("change", function () {
-            showInfoAndSubmit("existing_vm");
-        });
-    }
-
-    if (vrfSelect) {
-        vrfSelect.addEventListener("change", function () {
-            showInfoAndSubmit("existing_vm");
-        });
-    }
-
-    if (autoIpCheckbox) {
-        autoIpCheckbox.addEventListener("change", function () {
-            ipInput.disabled = autoIpCheckbox.checked;
-        });
-    }
+    if (vmSelect) vmSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+    if (nicSelect) nicSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+    if (vrfSelect) vrfSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+    if (autoIpCheckbox) autoIpCheckbox.addEventListener("change", () => ipInput.disabled = autoIpCheckbox.checked);
 });
 </script>
 {% endblock content %}
