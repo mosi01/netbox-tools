@@ -27,7 +27,7 @@ menu = PluginMenu(
                     auth_required=True,
                 ),         
                 PluginMenuItem(
-                    link='plugins:nbtools:vm_ip_assigner',
+                    link='plugins:nbtools:vm_tool',
                     link_text='(WIP)VM Tool',
                     auth_required=True,
                 ),
