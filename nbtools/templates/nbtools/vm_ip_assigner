@@ -1,0 +1,91 @@
+
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>VM IP Assigner</h2>
+
+    <!-- Display messages -->
+    {% if messages %}
+        <div>
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Initial GUI -->
+    {% if mode == "initial" %}
+        <p class="mb-3">
+            This plugin will help you to either create a new VM and assign IP, or help you assign an IP to an already existing VM.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="action" value="new_vm" class="btn btn-primary">New VM</button>
+            <button type="submit" name="action" value="existing_vm" class="btn btn-secondary" disabled>Existing VM</button>
+        </form>
+    {% endif %}
+
+    <!-- New VM GUI -->
+    {% if mode == "new_vm" %}
+        <h4>Create New VM</h4>
+        <form method="post" class="mt-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_vm">
+
+            <!-- Name -->
+            <div class="mb-3">
+                <label for="name" class="form-label">Name*</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ name|default:'' }}" required>
+            </div>
+
+            <!-- Role -->
+            <div class="mb-3">
+                <label for="role" class="form-label">Role</label>
+                <select id="role" name="role" class="form-select">
+                    {% for role in roles %}
+                        <option value="{{ role.id }}" {% if role.id|stringformat:"s" == role_id %}selected{% endif %}>
+                            {{ role.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control">{{ description|default:'' }}</textarea>
+            </div>
+
+            <!-- Site -->
+            <div class="mb-3">
+                <label for="site" class="form-label">Site</label>
+                <select id="site" name="site" class="form-select">
+                    {% for site in sites %}
+                        <option value="{{ site.id }}" {% if site.id|stringformat:"s" == site_id %}selected{% endif %}>
+                            {{ site.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Cluster -->
+            <div class="mb-3">
+                <label for="cluster" class="form-label">Cluster</label>
+                <select id="cluster" name="cluster" class="form-select">
+                    {% for cluster in clusters %}
+                        <option value="{{ cluster.id }}" {% if cluster.id|stringformat:"s" == cluster_id %}selected{% endif %}>
+                            {{ cluster.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Create Button -->
+            <button type="submit" class="btn btn-success">Create</button>
+            <a href="{% url 'plugins:nbtools:vm_ip_assigner' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
