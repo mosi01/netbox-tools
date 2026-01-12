@@ -293,6 +293,7 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -349,19 +350,10 @@ class VMToolView(View):
                 status="active"
             )
 
-            # HTML message for form
-            messages.success(
-                request,
-                f'<a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!',
-                extra_tags="safe"
-            )
-
-            # Plain text for popup
             popup_message = f'{vm.name} created successfully!'
             return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
         except Exception as e:
-            messages.error(request, f"Failed to create VM: {e}")
             return render(request, self.template_name, {
                 "mode": "new_vm",
                 "roles": DeviceRole.objects.all(),
@@ -372,7 +364,7 @@ class VMToolView(View):
                 "role_id": role_id,
                 "site_id": site_id,
                 "cluster_id": cluster_id,
-                "popup_message": ""
+                "popup_message": f"Failed to create VM: {e}"
             })
 
     def handle_existing_vm(self, request):
@@ -401,6 +393,7 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
+                        # Fetch VRF first, then prefix
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
@@ -408,6 +401,7 @@ class VMToolView(View):
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
+        # Fetch prefixes after VRF is known
         prefixes = []
         if selected_vrf:
             prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
@@ -465,21 +459,11 @@ class VMToolView(View):
                 vm.primary_ip4 = ip_obj
                 vm.save()
 
-            # HTML message for form
-            messages.success(
-                request,
-                f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
-                extra_tags="safe"
-            )
-
-            # Plain text for popup
             popup_message = f'{vm.name} was successfully updated and assigned to IP: {ip_address}'
             return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
         except Exception as e:
-            messages.error(request, f"Failed to apply changes: {e}")
             return self.handle_existing_vm(request)
-
 
 
 class SerialChecker(View):
