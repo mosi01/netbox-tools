@@ -1,22 +1,39 @@
+
 {% extends 'base/layout.html' %}
+
 {% block content %}
 <h2>Serial Checker</h2>
 
+<!-- Display next available serial number -->
 <p><strong>Next Available:</strong> {{ next_number }}</p>
+
+<!-- Display preview of next serial number -->
 <p><strong>Preview:</strong> {{ preview_number }}</p>
+
+<!-- Display count of available serial numbers -->
 <p><strong>Available Count:</strong> {{ available_count }}</p>
+
+<!-- Display count of taken serial numbers -->
 <p><strong>Taken Count:</strong> {{ taken_count }}</p>
+
+<!-- Display total count of serial numbers -->
 <p><strong>Total Count:</strong> {{ total_count }}</p>
 
+<!-- Form for checking, getting next serial, or showing list -->
 <form method="post">
     {% csrf_token %}
+    <!-- Hidden field to keep track of index -->
     <input type="hidden" name="index" value="{{ index }}">
+    <!-- Button to check current serial -->
     <button type="submit" name="check" class="btn btn-primary">Check</button>
+    <!-- Button to get next serial -->
     <button type="submit" name="next" class="btn btn-secondary">Next</button>
+    <!-- Button to show list of serials -->
     <button type="submit" name="show_list" class="btn btn-info">Show List</button>
 </form>
 
 {% if show_list %}
+    <!-- Display serial list table -->
     <h3>Serial List ({{ lowest_taken }} to {{ highest_taken|add:"1000"|slice:":4" }})</h3>
     <table class="table table-hover table-bordered">
         <thead>
@@ -27,6 +44,7 @@
         </thead>
         <tbody>
             {% for row in list_table %}
+                <!-- Highlight row based on availability -->
                 <tr class="{% if row.name != 'Available' %}table-danger{% else %}table-success{% endif %}">
                     <td>{{ row.serial }}</td>
                     <td>{{ row.name }}</td>
