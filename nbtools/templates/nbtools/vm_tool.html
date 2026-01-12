@@ -21,12 +21,10 @@
     {% endif %}
 
     {% if mode == "new_vm" %}
-        <!-- New VM Form -->
         <h4>Create New VM</h4>
         <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_vm">
-            <!-- Fields -->
             <div class="mb-3"><label>Name*</label><input type="text" name="name" class="form-control" value="{{ name|default:'' }}" required></div>
             <div class="mb-3"><label>Role</label><select name="role" class="form-select">{% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}</select></div>
             <div class="mb-3"><label>Description</label><textarea name="description" class="form-control">{{ description|default:'' }}</textarea></div>
@@ -38,7 +36,6 @@
     {% endif %}
 
     {% if mode == "existing_vm" %}
-        <!-- Existing VM Form -->
         <h4>Modify Existing VM</h4>
         <form method="post">
             {% csrf_token %}
@@ -58,14 +55,13 @@
             <!-- Interface Dropdown -->
             <div class="mb-3">
                 <label>Network Interface</label>
-                <select name="interface" id="interface" class="form-select" {% if not interfaces %}disabled{% endif %}>
+                <select name="interface" id="interface" class="form-select">
                     {% if interfaces %}
                         {% for iface in interfaces %}
                             <option value="{{ iface.id }}" {% if iface.id|stringformat:"s" == selected_interface %}selected{% endif %}>{{ iface.name }}</option>
                         {% endfor %}
-                    {% else %}
-                        <option value="new">Create a new Interface</option>
                     {% endif %}
+                    <option value="new" {% if selected_interface == "new" %}selected{% endif %}>Create a new Interface</option>
                 </select>
             </div>
 
@@ -83,7 +79,7 @@
             <!-- Auto IP Checkbox -->
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="auto_ip" name="auto_ip" {% if auto_ip %}checked{% endif %}>
-                <label class="form-check-label">Pick next available IP</label>
+                <label class="form-check-label" for="auto_ip">Pick next available IP</label>
             </div>
 
             <!-- Primary IP -->
@@ -97,4 +93,18 @@
         </form>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const autoIpCheckbox = document.getElementById("auto_ip");
+    const ipInput = document.getElementById("ip_address");
+
+    // Toggle IP textbox dynamically
+    if (autoIpCheckbox) {
+        autoIpCheckbox.addEventListener("change", function () {
+            ipInput.disabled = autoIpCheckbox.checked;
+        });
+    }
+});
+</script>
 {% endblock content %}
