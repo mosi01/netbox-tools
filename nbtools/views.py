@@ -295,6 +295,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -311,9 +312,11 @@ class VMToolView(View):
     def post(self, request):
         action = request.POST.get("action")
 
+        # Cancel button returns to initial mode
         if action == "cancel":
             return render(request, self.template_name, {"mode": "initial"})
 
+        # Show New VM form
         if action == "new_vm":
             return render(request, self.template_name, {
                 "mode": "new_vm",
@@ -322,6 +325,7 @@ class VMToolView(View):
                 "clusters": Cluster.objects.all(),
             })
 
+        # Create New VM
         elif action == "create_vm":
             name = request.POST.get("name")
             role_id = request.POST.get("role")
@@ -332,12 +336,19 @@ class VMToolView(View):
             try:
                 if not name or not role_id or not site_id or not cluster_id:
                     raise ValueError("All required fields must be filled in.")
+
                 vm = VirtualMachine.objects.create(
-                    name=name, role_id=role_id, description=description,
-                    site_id=site_id, cluster_id=cluster_id, status="active"
+                    name=name,
+                    role_id=role_id,
+                    description=description,
+                    site_id=site_id,
+                    cluster_id=cluster_id,
+                    status="active"
                 )
+
                 messages.success(request, f"VM '{vm.name}' created successfully!")
                 return render(request, self.template_name, {"mode": "initial"})
+
             except Exception as e:
                 messages.error(request, f"Failed to create VM: {e}")
                 return render(request, self.template_name, {
@@ -345,17 +356,38 @@ class VMToolView(View):
                     "roles": DeviceRole.objects.all(),
                     "sites": Site.objects.all(),
                     "clusters": Cluster.objects.all(),
-                    "name": name, "description": description,
-                    "role_id": role_id, "site_id": site_id, "cluster_id": cluster_id,
+                    "name": name,
+                    "description": description,
+                    "role_id": role_id,
+                    "site_id": site_id,
+                    "cluster_id": cluster_id,
                 })
 
-        elif action == "existing_vm":
+        # Show Existing VM form (or reload after VM selection)
+        elif action == "existing_vm" or (action == "apply_changes" and request.POST.get("vm")):
+            vm_id = request.POST.get("vm")
+            interfaces = []
+            if vm_id:
+                try:
+                    vm = VirtualMachine.objects.get(id=vm_id)
+                    interfaces = list(vm.interfaces.all())  # Fetch VM interfaces
+                except VirtualMachine.DoesNotExist:
+                    interfaces = []
+
+            # If no interfaces exist, template will show "Create a new Interface"
             return render(request, self.template_name, {
                 "mode": "existing_vm",
                 "vms": VirtualMachine.objects.all(),
                 "prefixes": Prefix.objects.all(),
+                "interfaces": interfaces,
+                "selected_vm": vm_id,
+                "selected_interface": request.POST.get("interface"),
+                "selected_prefix": request.POST.get("prefix"),
+                "ip_address": request.POST.get("ip_address"),
+                "auto_ip": request.POST.get("auto_ip") == "on",
             })
 
+        # Apply changes to Existing VM
         elif action == "apply_changes":
             vm_id = request.POST.get("vm")
             interface_id = request.POST.get("interface")
@@ -372,11 +404,13 @@ class VMToolView(View):
                 vm = VirtualMachine.objects.get(id=vm_id)
                 prefix = Prefix.objects.get(id=prefix_id)
 
+                # Determine interface
                 if interface_id == "new":
                     interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
 
+                # Determine IP
                 if auto_ip:
                     network = ip_network(prefix.prefix)
                     assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
@@ -389,27 +423,45 @@ class VMToolView(View):
                         raise ValueError("Invalid IP format.")
                     ip_address = f"{ip_address}/32"
 
-                ip_obj = IPAddress.objects.create(address=ip_address)
-                interface.ip_addresses.add(ip_obj)
-                vm.primary_ip4 = ip_obj
-                vm.save()
+                # Create IP and assign
+                with transaction.atomic():
+                    ip_obj = IPAddress.objects.create(address=ip_address)
+                    interface.ip_addresses.add(ip_obj)
+                    vm.primary_ip4 = ip_obj
+                    vm.save()
 
-                messages.success(request, f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}', extra_tags="safe")
+                messages.success(
+                    request,
+                    f'<a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    extra_tags="safe"
+                )
                 return render(request, self.template_name, {"mode": "initial"})
 
             except Exception as e:
                 messages.error(request, f"Failed to apply changes: {e}")
+                # Reload form with previous selections
+                interfaces = []
+                if vm_id:
+                    try:
+                        vm = VirtualMachine.objects.get(id=vm_id)
+                        interfaces = list(vm.interfaces.all())
+                    except VirtualMachine.DoesNotExist:
+                        interfaces = []
                 return render(request, self.template_name, {
                     "mode": "existing_vm",
                     "vms": VirtualMachine.objects.all(),
                     "prefixes": Prefix.objects.all(),
+                    "interfaces": interfaces,
                     "selected_vm": vm_id,
                     "selected_interface": interface_id,
                     "selected_prefix": prefix_id,
                     "ip_address": ip_address,
+                    "auto_ip": auto_ip,
                 })
 
+        # Fallback
         return render(request, self.template_name, {"mode": "initial"})
+
 
 
 
