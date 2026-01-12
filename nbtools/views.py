@@ -294,6 +294,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -309,6 +310,9 @@ class VMToolView(View):
 
     def post(self, request):
         action = request.POST.get("action")
+
+        if action == "cancel":
+            return render(request, self.template_name, {"mode": "initial"})
 
         if action == "new_vm":
             return render(request, self.template_name, {
@@ -326,24 +330,14 @@ class VMToolView(View):
             cluster_id = request.POST.get("cluster")
 
             try:
-                if not name:
-                    raise ValueError("Name is required.")
-                if not role_id or not site_id or not cluster_id:
-                    raise ValueError("Role, Site, and Cluster must be selected.")
-
-                with transaction.atomic():
-                    vm = VirtualMachine.objects.create(
-                        name=name,
-                        role_id=role_id,
-                        description=description,
-                        site_id=site_id,
-                        cluster_id=cluster_id,
-                        status="active"
-                    )
-
+                if not name or not role_id or not site_id or not cluster_id:
+                    raise ValueError("All required fields must be filled in.")
+                vm = VirtualMachine.objects.create(
+                    name=name, role_id=role_id, description=description,
+                    site_id=site_id, cluster_id=cluster_id, status="active"
+                )
                 messages.success(request, f"VM '{vm.name}' created successfully!")
                 return render(request, self.template_name, {"mode": "initial"})
-
             except Exception as e:
                 messages.error(request, f"Failed to create VM: {e}")
                 return render(request, self.template_name, {
@@ -351,11 +345,8 @@ class VMToolView(View):
                     "roles": DeviceRole.objects.all(),
                     "sites": Site.objects.all(),
                     "clusters": Cluster.objects.all(),
-                    "name": name,
-                    "description": description,
-                    "role_id": role_id,
-                    "site_id": site_id,
-                    "cluster_id": cluster_id,
+                    "name": name, "description": description,
+                    "role_id": role_id, "site_id": site_id, "cluster_id": cluster_id,
                 })
 
         elif action == "existing_vm":
@@ -382,42 +373,28 @@ class VMToolView(View):
                 prefix = Prefix.objects.get(id=prefix_id)
 
                 if interface_id == "new":
-                    interface = VMInterface.objects.create(
-                        virtual_machine=vm,
-                        name=f"NIC-{vm.name}"
-                    )
+                    interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
 
                 if auto_ip:
                     network = ip_network(prefix.prefix)
-                    assigned_ips = set(str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix))
-                    next_ip = None
-                    for i, host in enumerate(network.hosts()):
-                        if i < 5:
-                            continue
-                        if str(host) not in assigned_ips:
-                            next_ip = str(host)
-                            break
+                    assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
+                    next_ip = next((str(host) for i, host in enumerate(network.hosts()) if i >= 5 and str(host) not in assigned_ips), None)
                     if not next_ip:
-                        raise ValueError("No available IP found in the selected prefix.")
+                        raise ValueError("No available IP found.")
                     ip_address = f"{next_ip}/32"
                 else:
                     if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
-                        raise ValueError("Invalid IP format. Must be nnn.nnn.nnn.nnn.")
+                        raise ValueError("Invalid IP format.")
                     ip_address = f"{ip_address}/32"
 
-                with transaction.atomic():
-                    ip_obj = IPAddress.objects.create(address=ip_address)
-                    interface.ip_addresses.add(ip_obj)
-                    vm.primary_ip4 = ip_obj
-                    vm.save()
+                ip_obj = IPAddress.objects.create(address=ip_address)
+                interface.ip_addresses.add(ip_obj)
+                vm.primary_ip4 = ip_obj
+                vm.save()
 
-                messages.success(
-                    request,
-                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
-                    extra_tags="safe"
-                )
+                messages.success(request, f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}', extra_tags="safe")
                 return render(request, self.template_name, {"mode": "initial"})
 
             except Exception as e:
@@ -433,7 +410,6 @@ class VMToolView(View):
                 })
 
         return render(request, self.template_name, {"mode": "initial"})
-
 
 
 
