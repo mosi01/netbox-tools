@@ -293,6 +293,7 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -412,7 +413,11 @@ class VMToolView(View):
                     vm.primary_ip4 = ip_obj
                     vm.save()
 
-                messages.success(request, f"{vm.name} was successfully updated and assigned to IP: {ip_address}")
+                messages.success(
+                    request,
+                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    extra_tags="safe"
+                )
                 return render(request, self.template_name, {"mode": "initial"})
 
             except Exception as e:
@@ -428,6 +433,7 @@ class VMToolView(View):
                 })
 
         return render(request, self.template_name, {"mode": "initial"})
+
 
 
 
