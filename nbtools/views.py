@@ -294,6 +294,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -307,13 +308,14 @@ class VMToolView(View):
             "vms": VirtualMachine.objects.all(),
             "vrfs": VRF.objects.all(),
             "prefixes": [],
+            "popup_message": ""
         })
 
     def post(self, request):
         action = request.POST.get("action")
 
         if action == "cancel":
-            return render(request, self.template_name, {"mode": "initial"})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": ""})
 
         if action == "new_vm":
             return render(request, self.template_name, {
@@ -321,6 +323,7 @@ class VMToolView(View):
                 "roles": DeviceRole.objects.all(),
                 "sites": Site.objects.all(),
                 "clusters": Cluster.objects.all(),
+                "popup_message": ""
             })
 
         if action == "create_vm":
@@ -353,7 +356,8 @@ class VMToolView(View):
                 f'<a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!',
                 extra_tags="safe"
             )
-            return render(request, self.template_name, {"mode": "initial"})
+            popup_message = f'{vm.name} created successfully!'
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
         except Exception as e:
             messages.error(request, f"Failed to create VM: {e}")
@@ -367,6 +371,7 @@ class VMToolView(View):
                 "role_id": role_id,
                 "site_id": site_id,
                 "cluster_id": cluster_id,
+                "popup_message": ""
             })
 
     def handle_existing_vm(self, request):
@@ -395,7 +400,6 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # Correct prefix lookup
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
@@ -403,7 +407,6 @@ class VMToolView(View):
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
-        # FIX: Ensure prefix list includes selected prefix even if VRF wasn't chosen
         prefixes = []
         if selected_vrf:
             prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
@@ -422,6 +425,7 @@ class VMToolView(View):
             "selected_prefix": selected_prefix or prefix_id,
             "ip_address": ip_address_display,
             "auto_ip": auto_ip,
+            "popup_message": ""
         })
 
     def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf):
@@ -439,7 +443,6 @@ class VMToolView(View):
             else:
                 interface = VMInterface.objects.get(id=interface_id)
 
-            # Remove existing IPs from NIC before adding new one
             if interface.ip_addresses.exists():
                 interface.ip_addresses.clear()
 
@@ -456,7 +459,7 @@ class VMToolView(View):
                 ip_address = f"{ip_address}/32"
 
             with transaction.atomic():
-                ip_obj = IPAddress.objects.create(address=ip_address, vrf_id=selected_vrf)  # ✅ Assign VRF
+                ip_obj = IPAddress.objects.create(address=ip_address, vrf_id=selected_vrf)
                 interface.ip_addresses.add(ip_obj)
                 vm.primary_ip4 = ip_obj
                 vm.save()
@@ -466,7 +469,8 @@ class VMToolView(View):
                 f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                 extra_tags="safe"
             )
-            return render(request, self.template_name, {"mode": "initial"})
+            popup_message = f'{vm.name} was successfully updated and assigned to IP: {ip_address}'
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
         except Exception as e:
             messages.error(request, f"Failed to apply changes: {e}")
