@@ -12,6 +12,22 @@
         {% endfor %}
     {% endif %}
 
+    <!-- Popup message container -->
+    {% if popup_message %}
+        <div id="popup-message" class="alert alert-info" style="display:none;">
+            {{ popup_message }}
+        </div>
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const popup = document.getElementById("popup-message");
+                if (popup && popup.textContent.trim() !== "") {
+                    popup.style.display = "block";
+                    setTimeout(() => popup.style.display = "none", 5000); // Hide after 5s
+                }
+            });
+        </script>
+    {% endif %}
+
     {% if mode == "initial" %}
         <p>This plugin will help you create a new VM or assign IP to an existing VM.</p>
         <form method="post">
