@@ -1,3 +1,4 @@
+
 {% extends 'base/layout.html' %}
 {% block header %}
 <h1>VM Tool</h1>
@@ -99,7 +100,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const autoIpCheckbox = document.getElementById("auto_ip");
     const ipInput = document.getElementById("ip_address");
 
-    // Toggle IP textbox dynamically
     if (autoIpCheckbox) {
         autoIpCheckbox.addEventListener("change", function () {
             ipInput.disabled = autoIpCheckbox.checked;
