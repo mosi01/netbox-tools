@@ -296,6 +296,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -374,7 +375,6 @@ class VMToolView(View):
                 except VirtualMachine.DoesNotExist:
                     interfaces = []
 
-            # If no interfaces exist, template will show "Create a new Interface"
             return render(request, self.template_name, {
                 "mode": "existing_vm",
                 "vms": VirtualMachine.objects.all(),
@@ -396,16 +396,16 @@ class VMToolView(View):
             auto_ip = request.POST.get("auto_ip") == "on"
 
             try:
-                if not vm_id or not interface_id or not prefix_id:
-                    raise ValueError("All required fields must be filled in.")
+                if not vm_id or not prefix_id:
+                    raise ValueError("VM and Prefix must be selected.")
                 if not auto_ip and not ip_address:
                     raise ValueError("Primary IP must be provided if auto IP is not selected.")
 
                 vm = VirtualMachine.objects.get(id=vm_id)
                 prefix = Prefix.objects.get(id=prefix_id)
 
-                # Determine interface
-                if interface_id == "new":
+                # Determine interface: if missing or "new", create one
+                if not interface_id or interface_id == "new":
                     interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
@@ -432,14 +432,13 @@ class VMToolView(View):
 
                 messages.success(
                     request,
-                    f'<a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                     extra_tags="safe"
                 )
                 return render(request, self.template_name, {"mode": "initial"})
 
             except Exception as e:
                 messages.error(request, f"Failed to apply changes: {e}")
-                # Reload form with previous selections
                 interfaces = []
                 if vm_id:
                     try:
@@ -461,8 +460,6 @@ class VMToolView(View):
 
         # Fallback
         return render(request, self.template_name, {"mode": "initial"})
-
-
 
 
 class SerialChecker(View):
