@@ -5,8 +5,8 @@ app_name = "nbtools"
 
 urlpatterns = [
 	path("", views.dashboard, name="dashboard"),
-	path("documentation-reviewer/", views.documentation_reviewer, name="documentation_reviewer"),
+	path("documentation-reviewer/", views.DocumentationReviewerView.as_view(), name="documentation_reviewer"),
 	path("serial-checker/", views.SerialChecker.as_view(), name="serial_checker"),
-	path("lindab-ip-checker/", views.LindabIPListView.as_view(), name="lindab_ip_checker"),
-	path("prefix-validator/", views.prefix_validator_view, name="prefix_validator"),
+	path("ip_prefix_checker/", views.IPPrefixCheckerView.as_view(), name="ip_prefix_checker"),
+	path("prefix-validator/", views.PrefixValidatorView.as_view(), name="prefix_validator"),
 ]
