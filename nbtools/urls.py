@@ -9,5 +9,5 @@ urlpatterns = [
 	path("serial-checker/", views.SerialChecker.as_view(), name="serial_checker"),
 	path("ip_prefix_checker/", views.IPPrefixCheckerView.as_view(), name="ip_prefix_checker"),
 	path("prefix-validator/", views.PrefixValidatorView.as_view(), name="prefix_validator"),
-	path("vm-ip-assigner/", views.VMIPAssignerView.as_view(), name="vm_ip_assigner"),
+	path("vm-tool/", views.VMToolView.as_view(), name="vm_tool"),
 ]
