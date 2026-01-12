@@ -9,7 +9,7 @@ A plugin for NetBox that adds utilities like:
 ## Installation
 
 ```bash
-pip install git+https://github.com/yourusername/netbox-tools.git
+pip install git+https://github.com/mosi01/netbox-tools.git
 
 ```
 then add to your NetBox configuration:
