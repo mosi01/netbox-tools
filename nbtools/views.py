@@ -295,10 +295,12 @@ class DocumentationReviewerView(View):
 
 
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
     def get(self, request):
+        # Initial GUI
         return render(request, self.template_name, {
             "mode": "initial",
             "roles": DeviceRole.objects.all(),
@@ -311,13 +313,65 @@ class VMToolView(View):
     def post(self, request):
         action = request.POST.get("action")
 
-        if action == "existing_vm":
+        # Show New VM form
+        if action == "new_vm":
+            return render(request, self.template_name, {
+                "mode": "new_vm",
+                "roles": DeviceRole.objects.all(),
+                "sites": Site.objects.all(),
+                "clusters": Cluster.objects.all(),
+            })
+
+        # Create New VM
+        elif action == "create_vm":
+            name = request.POST.get("name")
+            role_id = request.POST.get("role")
+            description = request.POST.get("description")
+            site_id = request.POST.get("site")
+            cluster_id = request.POST.get("cluster")
+
+            try:
+                if not name:
+                    raise ValueError("Name is required.")
+                if not role_id or not site_id or not cluster_id:
+                    raise ValueError("Role, Site, and Cluster must be selected.")
+
+                with transaction.atomic():
+                    vm = VirtualMachine.objects.create(
+                        name=name,
+                        role_id=role_id,
+                        description=description,
+                        site_id=site_id,
+                        cluster_id=cluster_id,
+                        status="active"
+                    )
+
+                messages.success(request, f"VM '{vm.name}' created successfully!")
+                return render(request, self.template_name, {"mode": "initial"})
+
+            except Exception as e:
+                messages.error(request, f"Failed to create VM: {e}")
+                return render(request, self.template_name, {
+                    "mode": "new_vm",
+                    "roles": DeviceRole.objects.all(),
+                    "sites": Site.objects.all(),
+                    "clusters": Cluster.objects.all(),
+                    "name": name,
+                    "description": description,
+                    "role_id": role_id,
+                    "site_id": site_id,
+                    "cluster_id": cluster_id,
+                })
+
+        # Show Existing VM form
+        elif action == "existing_vm":
             return render(request, self.template_name, {
                 "mode": "existing_vm",
                 "vms": VirtualMachine.objects.all(),
                 "prefixes": Prefix.objects.all(),
             })
 
+        # Apply changes to Existing VM
         elif action == "apply_changes":
             vm_id = request.POST.get("vm")
             interface_id = request.POST.get("interface")
@@ -325,6 +379,13 @@ class VMToolView(View):
             ip_address = request.POST.get("ip_address")
 
             try:
+                if not vm_id:
+                    raise ValueError("Virtual Machine must be selected.")
+                if not prefix_id:
+                    raise ValueError("Prefix must be selected.")
+                if not ip_address:
+                    raise ValueError("IP Address cannot be empty.")
+
                 vm = VirtualMachine.objects.get(id=vm_id)
                 prefix = Prefix.objects.get(id=prefix_id)
 
@@ -337,15 +398,16 @@ class VMToolView(View):
                 else:
                     interface = VMInterface.objects.get(id=interface_id)
 
-                # Validate IP
+                # Validate IP format
                 if "/" not in ip_address:
                     ip_address = f"{ip_address}/32"  # ✅ Use /32 for single host
 
                 # Create IP and assign
-                ip_obj = IPAddress.objects.create(address=ip_address)
-                interface.ip_addresses.add(ip_obj)
-                vm.primary_ip4 = ip_obj
-                vm.save()
+                with transaction.atomic():
+                    ip_obj = IPAddress.objects.create(address=ip_address)
+                    interface.ip_addresses.add(ip_obj)
+                    vm.primary_ip4 = ip_obj
+                    vm.save()
 
                 messages.success(request, f"Changes applied successfully to <a href='{vm.get_absolute_url()}'>{vm.name}</a>.")
                 return render(request, self.template_name, {"mode": "initial"})
@@ -354,6 +416,8 @@ class VMToolView(View):
                 messages.error(request, "Selected Virtual Machine does not exist.")
             except Prefix.DoesNotExist:
                 messages.error(request, "Selected Prefix does not exist.")
+            except VMInterface.DoesNotExist:
+                messages.error(request, "Selected Interface does not exist.")
             except Exception as e:
                 messages.error(request, f"Failed to apply changes: {e}")
 
@@ -366,6 +430,9 @@ class VMToolView(View):
                 "selected_prefix": prefix_id,
                 "ip_address": ip_address,
             })
+
+        # Fallback: return to initial GUI
+        return render(request, self.template_name, {"mode": "initial"})
 
 
 
