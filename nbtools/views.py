@@ -347,7 +347,7 @@ class VMToolView(View):
                 status="active"
             )
 
-            messages.success(request, f'VM <a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!', extra_tags="safe")
+            messages.success(request, f'VM {vm.get_absolute_url()}{vm.name}</a> created successfully!', extra_tags="safe")
             return render(request, self.template_name, {"mode": "initial"})
 
         except Exception as e:
@@ -389,7 +389,9 @@ class VMToolView(View):
                     if iface.ip_addresses.exists():
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
-                        prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
+
+                        # FIX: Ensure prefix is found correctly
+                        prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address.ip).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
                             selected_vrf = str(prefix_obj.vrf.id)
@@ -445,7 +447,7 @@ class VMToolView(View):
                 vm.primary_ip4 = ip_obj
                 vm.save()
 
-            messages.success(request, f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}', extra_tags="safe")
+            messages.success(request, f'{vm.get_absolute_url()}{vm.name}</a> was successfully updated and assigned to IP: {ip_address}', extra_tags="safe")
             return render(request, self.template_name, {"mode": "initial"})
 
         except Exception as e:
