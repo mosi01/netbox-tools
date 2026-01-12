@@ -1,4 +1,3 @@
-
 {% extends 'base/layout.html' %}
 {% block header %}
 <h1>VM Tool</h1>
@@ -38,14 +37,13 @@
 
     {% if mode == "existing_vm" %}
         <h4>Modify Existing VM</h4>
-        <form method="post">
+        <form method="post" id="existing-vm-form">
             {% csrf_token %}
-            <input type="hidden" name="action" value="apply_changes">
 
             <!-- VM Dropdown -->
             <div class="mb-3">
                 <label>Virtual Machine</label>
-                <select name="vm" id="vm" class="form-select" onchange="this.form.submit()">
+                <select name="vm" id="vm" class="form-select">
                     <option value="">Select VM</option>
                     {% for vm in vms %}
                         <option value="{{ vm.id }}" {% if vm.id|stringformat:"s" == selected_vm %}selected{% endif %}>{{ vm.name }}</option>
@@ -89,7 +87,8 @@
                 <input type="text" id="ip_address" name="ip_address" class="form-control" value="{{ ip_address|default:'' }}" {% if auto_ip %}disabled{% endif %}>
             </div>
 
-            <button type="submit" class="btn btn-success">Make Changes</button>
+            <!-- Buttons -->
+            <button type="submit" name="action" value="apply_changes" class="btn btn-success">Make Changes</button>
             <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
         </form>
     {% endif %}
@@ -97,9 +96,24 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+    const vmSelect = document.getElementById("vm");
+    const form = document.getElementById("existing-vm-form");
     const autoIpCheckbox = document.getElementById("auto_ip");
     const ipInput = document.getElementById("ip_address");
 
+    // Reload form when VM changes, but set action to existing_vm
+    if (vmSelect) {
+        vmSelect.addEventListener("change", function () {
+            const hiddenAction = document.createElement("input");
+            hiddenAction.type = "hidden";
+            hiddenAction.name = "action";
+            hiddenAction.value = "existing_vm";
+            form.appendChild(hiddenAction);
+            form.submit();
+        });
+    }
+
+    // Toggle IP textbox dynamically
     if (autoIpCheckbox) {
         autoIpCheckbox.addEventListener("change", function () {
             ipInput.disabled = autoIpCheckbox.checked;
