@@ -293,8 +293,6 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -351,11 +349,14 @@ class VMToolView(View):
                 status="active"
             )
 
+            # HTML message for form
             messages.success(
                 request,
                 f'<a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!',
                 extra_tags="safe"
             )
+
+            # Plain text for popup
             popup_message = f'{vm.name} created successfully!'
             return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
@@ -464,17 +465,21 @@ class VMToolView(View):
                 vm.primary_ip4 = ip_obj
                 vm.save()
 
+            # HTML message for form
             messages.success(
                 request,
                 f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                 extra_tags="safe"
             )
+
+            # Plain text for popup
             popup_message = f'{vm.name} was successfully updated and assigned to IP: {ip_address}'
             return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message})
 
         except Exception as e:
             messages.error(request, f"Failed to apply changes: {e}")
             return self.handle_existing_vm(request)
+
 
 
 class SerialChecker(View):
