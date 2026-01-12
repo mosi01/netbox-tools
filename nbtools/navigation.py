@@ -28,7 +28,7 @@ menu = PluginMenu(
                 ),         
                 PluginMenuItem(
                     link='plugins:nbtools:vm_tool',
-                    link_text='(WIP)VM Tool',
+                    link_text='VM Tool',
                     auth_required=True,
                 ),
             ),
