@@ -288,6 +288,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -366,28 +367,25 @@ class VMToolView(View):
         interface_id = request.POST.get("interface")
         selected_vrf = request.POST.get("vrf")
         prefix_id = request.POST.get("prefix")
-        ip_address = request.POST.get("ip_address")
+        ip_address_display = request.POST.get("ip_address")
         auto_ip = request.POST.get("auto_ip") == "on"
-
-        if request.POST.get("action") == "apply_changes":
-            return self.apply_changes(request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf)
 
         interfaces = []
         selected_prefix = None
-        ip_address_display = ip_address
 
         if vm_id:
             try:
                 vm = VirtualMachine.objects.get(id=vm_id)
                 interfaces = list(vm.interfaces.all())
 
+                # When NIC is selected, fetch Primary IP, Prefix, and VRF
                 if interface_id and interface_id != "new":
                     iface = VMInterface.objects.get(id=interface_id)
                     if iface.ip_addresses.exists():
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # Fetch VRF first, then prefix
+                        # Fetch Prefix Parent
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
@@ -395,7 +393,7 @@ class VMToolView(View):
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
-        # Fetch prefixes after VRF is known
+        # Fetch prefixes based on VRF
         prefixes = []
         if selected_vrf:
             prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
