@@ -13,7 +13,7 @@ from ipam.models import Prefix, VRF, IPAddress
 
 
 from dcim.models import Device, DeviceRole, Site
-from virtualization.models import VirtualMachine, Cluster
+from virtualization.models import VirtualMachine, Cluster, VMInterface
 from django.contrib.contenttypes.models import ContentType
 from django.contrib import messages
 
@@ -294,59 +294,78 @@ class DocumentationReviewerView(View):
 
 
 
-class VMIPAssignerView(View):
-    template_name = "nbtools/vm_ip_assigner.html"
+
+class VMToolView(View):
+    template_name = "nbtools/vm_tool.html"
 
     def get(self, request):
-        # Initial GUI with two buttons
         return render(request, self.template_name, {
             "mode": "initial",
             "roles": DeviceRole.objects.all(),
             "sites": Site.objects.all(),
             "clusters": Cluster.objects.all(),
+            "vms": VirtualMachine.objects.all(),
+            "prefixes": Prefix.objects.all(),
         })
 
     def post(self, request):
         action = request.POST.get("action")
-        if action == "new_vm":
+
+        if action == "existing_vm":
             return render(request, self.template_name, {
-                "mode": "new_vm",
-                "roles": DeviceRole.objects.all(),
-                "sites": Site.objects.all(),
-                "clusters": Cluster.objects.all(),
+                "mode": "existing_vm",
+                "vms": VirtualMachine.objects.all(),
+                "prefixes": Prefix.objects.all(),
             })
-        elif action == "create_vm":
-            name = request.POST.get("name")
-            role_id = request.POST.get("role")
-            description = request.POST.get("description")
-            site_id = request.POST.get("site")
-            cluster_id = request.POST.get("cluster")
+
+        elif action == "apply_changes":
+            vm_id = request.POST.get("vm")
+            interface_id = request.POST.get("interface")
+            prefix_id = request.POST.get("prefix")
+            ip_address = request.POST.get("ip_address")
 
             try:
-                with transaction.atomic():
-                    vm = VirtualMachine.objects.create(
-                        name=name,
-                        role_id=role_id,
-                        description=description,
-                        site_id=site_id,
-                        cluster_id=cluster_id,
-                        status="active"
+                vm = VirtualMachine.objects.get(id=vm_id)
+                prefix = Prefix.objects.get(id=prefix_id)
+
+                # Determine interface
+                if interface_id == "new":
+                    interface = VMInterface.objects.create(
+                        virtual_machine=vm,
+                        name=f"NIC-{vm.name}"
                     )
-                messages.success(request, f"VM '{vm.name}' created successfully!")
+                else:
+                    interface = VMInterface.objects.get(id=interface_id)
+
+                # Validate IP
+                if "/" not in ip_address:
+                    ip_address = f"{ip_address}/32"  # ✅ Use /32 for single host
+
+                # Create IP and assign
+                ip_obj = IPAddress.objects.create(address=ip_address)
+                interface.ip_addresses.add(ip_obj)
+                vm.primary_ip4 = ip_obj
+                vm.save()
+
+                messages.success(request, f"Changes applied successfully to <a href='{vm.get_absolute_url()}'>{vm.name}</a>.")
                 return render(request, self.template_name, {"mode": "initial"})
+
+            except VirtualMachine.DoesNotExist:
+                messages.error(request, "Selected Virtual Machine does not exist.")
+            except Prefix.DoesNotExist:
+                messages.error(request, "Selected Prefix does not exist.")
             except Exception as e:
-                messages.error(request, f"Failed to create VM: {e}")
-                return render(request, self.template_name, {
-                    "mode": "new_vm",
-                    "roles": DeviceRole.objects.all(),
-                    "sites": Site.objects.all(),
-                    "clusters": Cluster.objects.all(),
-                    "name": name,
-                    "description": description,
-                    "role_id": role_id,
-                    "site_id": site_id,
-                    "cluster_id": cluster_id,
-                })
+                messages.error(request, f"Failed to apply changes: {e}")
+
+            return render(request, self.template_name, {
+                "mode": "existing_vm",
+                "vms": VirtualMachine.objects.all(),
+                "prefixes": Prefix.objects.all(),
+                "selected_vm": vm_id,
+                "selected_interface": interface_id,
+                "selected_prefix": prefix_id,
+                "ip_address": ip_address,
+            })
 
 
 
