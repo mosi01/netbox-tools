@@ -64,6 +64,17 @@
                 </select>
             </div>
 
+            <!-- VRF Dropdown -->
+            <div class="mb-3">
+                <label>VRF</label>
+                <select name="vrf" id="vrf" class="form-select">
+                    <option value="">Select VRF</option>
+                    {% for vrf in vrfs %}
+                        <option value="{{ vrf.id }}" {% if vrf.id|stringformat:"s" == selected_vrf %}selected{% endif %}>{{ vrf.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <!-- Prefix Dropdown -->
             <div class="mb-3">
                 <label>IP Prefix</label>
@@ -98,45 +109,43 @@
 document.addEventListener("DOMContentLoaded", function () {
     const vmSelect = document.getElementById("vm");
     const nicSelect = document.getElementById("interface");
+    const vrfSelect = document.getElementById("vrf");
     const form = document.getElementById("existing-vm-form");
     const autoIpCheckbox = document.getElementById("auto_ip");
     const ipInput = document.getElementById("ip_address");
 
-    // Reload form when VM changes, show info message
+    function showInfoAndSubmit(actionValue) {
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "alert alert-info mt-3";
+        infoDiv.textContent = "Please wait... Gathering information.";
+        form.parentNode.insertBefore(infoDiv, form);
+
+        const hiddenAction = document.createElement("input");
+        hiddenAction.type = "hidden";
+        hiddenAction.name = "action";
+        hiddenAction.value = actionValue;
+        form.appendChild(hiddenAction);
+        form.submit();
+    }
+
     if (vmSelect) {
         vmSelect.addEventListener("change", function () {
-            const infoDiv = document.createElement("div");
-            infoDiv.className = "alert alert-info mt-3";
-            infoDiv.textContent = "Please wait... Gathering information.";
-            form.parentNode.insertBefore(infoDiv, form);
-
-            const hiddenAction = document.createElement("input");
-            hiddenAction.type = "hidden";
-            hiddenAction.name = "action";
-            hiddenAction.value = "existing_vm";
-            form.appendChild(hiddenAction);
-            form.submit();
+            showInfoAndSubmit("existing_vm");
         });
     }
 
-    // Reload form when NIC changes, show info message
     if (nicSelect) {
         nicSelect.addEventListener("change", function () {
-            const infoDiv = document.createElement("div");
-            infoDiv.className = "alert alert-info mt-3";
-            infoDiv.textContent = "Please wait... Gathering information.";
-            form.parentNode.insertBefore(infoDiv, form);
-
-            const hiddenAction = document.createElement("input");
-            hiddenAction.type = "hidden";
-            hiddenAction.name = "action";
-            hiddenAction.value = "existing_vm";
-            form.appendChild(hiddenAction);
-            form.submit();
+            showInfoAndSubmit("existing_vm");
         });
     }
 
-    // Toggle IP textbox dynamically
+    if (vrfSelect) {
+        vrfSelect.addEventListener("change", function () {
+            showInfoAndSubmit("existing_vm");
+        });
+    }
+
     if (autoIpCheckbox) {
         autoIpCheckbox.addEventListener("change", function () {
             ipInput.disabled = autoIpCheckbox.checked;
