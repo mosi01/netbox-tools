@@ -293,6 +293,7 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -303,7 +304,8 @@ class VMToolView(View):
             "sites": Site.objects.all(),
             "clusters": Cluster.objects.all(),
             "vms": VirtualMachine.objects.all(),
-            "prefixes": Prefix.objects.all(),
+            "vrfs": VRF.objects.all(),
+            "prefixes": [],
         })
 
     def post(self, request):
@@ -320,161 +322,136 @@ class VMToolView(View):
                 "clusters": Cluster.objects.all(),
             })
 
-        elif action == "create_vm":
-            name = request.POST.get("name")
-            role_id = request.POST.get("role")
-            description = request.POST.get("description")
-            site_id = request.POST.get("site")
-            cluster_id = request.POST.get("cluster")
+        if action == "create_vm":
+            return self.create_vm(request)
 
-            try:
-                if not name or not role_id or not site_id or not cluster_id:
-                    raise ValueError("All required fields must be filled in.")
+        return self.handle_existing_vm(request)
 
-                vm = VirtualMachine.objects.create(
-                    name=name,
-                    role_id=role_id,
-                    description=description,
-                    site_id=site_id,
-                    cluster_id=cluster_id,
-                    status="active"
-                )
+    def create_vm(self, request):
+        name = request.POST.get("name")
+        role_id = request.POST.get("role")
+        description = request.POST.get("description")
+        site_id = request.POST.get("site")
+        cluster_id = request.POST.get("cluster")
 
-                messages.success(
-                    request,
-                    f'VM <a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!',
-                    extra_tags="safe"
-                )
-                return render(request, self.template_name, {"mode": "initial"})
+        try:
+            if not name or not role_id or not site_id or not cluster_id:
+                raise ValueError("All required fields must be filled in.")
 
-            except Exception as e:
-                messages.error(request, f"Failed to create VM: {e}")
-                return render(request, self.template_name, {
-                    "mode": "new_vm",
-                    "roles": DeviceRole.objects.all(),
-                    "sites": Site.objects.all(),
-                    "clusters": Cluster.objects.all(),
-                    "name": name,
-                    "description": description,
-                    "role_id": role_id,
-                    "site_id": site_id,
-                    "cluster_id": cluster_id,
-                })
+            vm = VirtualMachine.objects.create(
+                name=name,
+                role_id=role_id,
+                description=description,
+                site_id=site_id,
+                cluster_id=cluster_id,
+                status="active"
+            )
 
-        if action == "apply_changes":
-            vm_id = request.POST.get("vm")
-            interface_id = request.POST.get("interface")
-            prefix_id = request.POST.get("prefix")
-            ip_address = request.POST.get("ip_address")
-            auto_ip = request.POST.get("auto_ip") == "on"
+            messages.success(request, f'VM <a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!', extra_tags="safe")
+            return render(request, self.template_name, {"mode": "initial"})
 
-            try:
-                if not vm_id or not prefix_id:
-                    raise ValueError("VM and Prefix must be selected.")
-                if not auto_ip and not ip_address:
-                    raise ValueError("Primary IP must be provided if auto IP is not selected.")
-
-                vm = VirtualMachine.objects.get(id=vm_id)
-                prefix = Prefix.objects.get(id=prefix_id)
-
-                if not interface_id or interface_id == "new":
-                    interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
-                else:
-                    interface = VMInterface.objects.get(id=interface_id)
-
-                if auto_ip:
-                    network = ip_network(prefix.prefix)
-                    assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
-                    next_ip = next((str(host) for i, host in enumerate(network.hosts()) if i >= 5 and str(host) not in assigned_ips), None)
-                    if not next_ip:
-                        raise ValueError("No available IP found.")
-                    ip_address = f"{next_ip}/32"
-                else:
-                    if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
-                        raise ValueError("Invalid IP format.")
-                    ip_address = f"{ip_address}/32"
-
-                with transaction.atomic():
-                    ip_obj = IPAddress.objects.create(address=ip_address)
-                    interface.ip_addresses.add(ip_obj)
-                    vm.primary_ip4 = ip_obj
-                    vm.save()
-
-                messages.success(
-                    request,
-                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
-                    extra_tags="safe"
-                )
-                return render(request, self.template_name, {"mode": "initial"})
-
-            except Exception as e:
-                messages.error(request, f"Failed to apply changes: {e}")
-                interfaces = []
-                selected_prefix = None
-                ip_address_display = ip_address
-
-                if vm_id:
-                    try:
-                        vm = VirtualMachine.objects.get(id=vm_id)
-                        interfaces = list(vm.interfaces.all())
-                        if interface_id and interface_id != "new":
-                            iface = VMInterface.objects.get(id=interface_id)
-                            if iface.ip_addresses.exists():
-                                ip_obj = iface.ip_addresses.first()
-                                ip_address_display = str(ip_obj.address.ip)
-                                prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
-                                if prefix_obj:
-                                    selected_prefix = str(prefix_obj.id)
-                    except VirtualMachine.DoesNotExist:
-                        interfaces = []
-
-                return render(request, self.template_name, {
-                    "mode": "existing_vm",
-                    "vms": VirtualMachine.objects.all(),
-                    "prefixes": Prefix.objects.all(),
-                    "interfaces": interfaces,
-                    "selected_vm": vm_id,
-                    "selected_interface": interface_id,
-                    "selected_prefix": selected_prefix or prefix_id,
-                    "ip_address": ip_address_display,
-                    "auto_ip": auto_ip,
-                })
-
-        if action == "existing_vm" or request.POST.get("vm"):
-            vm_id = request.POST.get("vm")
-            interfaces = []
-            selected_prefix = None
-            ip_address_display = None
-            selected_interface = request.POST.get("interface")
-
-            if vm_id:
-                try:
-                    vm = VirtualMachine.objects.get(id=vm_id)
-                    interfaces = list(vm.interfaces.all())
-                    if selected_interface and selected_interface != "new":
-                        iface = VMInterface.objects.get(id=selected_interface)
-                        if iface.ip_addresses.exists():
-                            ip_obj = iface.ip_addresses.first()
-                            ip_address_display = str(ip_obj.address.ip)
-                            prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
-                            if prefix_obj:
-                                selected_prefix = str(prefix_obj.id)
-                except VirtualMachine.DoesNotExist:
-                    interfaces = []
-
+        except Exception as e:
+            messages.error(request, f"Failed to create VM: {e}")
             return render(request, self.template_name, {
-                "mode": "existing_vm",
-                "vms": VirtualMachine.objects.all(),
-                "prefixes": Prefix.objects.all(),
-                "interfaces": interfaces,
-                "selected_vm": vm_id,
-                "selected_interface": selected_interface,
-                "selected_prefix": selected_prefix,
-                "ip_address": ip_address_display,
-                "auto_ip": request.POST.get("auto_ip") == "on",
+                "mode": "new_vm",
+                "roles": DeviceRole.objects.all(),
+                "sites": Site.objects.all(),
+                "clusters": Cluster.objects.all(),
+                "name": name,
+                "description": description,
+                "role_id": role_id,
+                "site_id": site_id,
+                "cluster_id": cluster_id,
             })
 
-        return render(request, self.template_name, {"mode": "initial"})
+    def handle_existing_vm(self, request):
+        vm_id = request.POST.get("vm")
+        interface_id = request.POST.get("interface")
+        selected_vrf = request.POST.get("vrf")
+        prefix_id = request.POST.get("prefix")
+        ip_address = request.POST.get("ip_address")
+        auto_ip = request.POST.get("auto_ip") == "on"
+
+        if request.POST.get("action") == "apply_changes":
+            return self.apply_changes(request, vm_id, interface_id, prefix_id, ip_address, auto_ip)
+
+        interfaces = []
+        selected_prefix = None
+        ip_address_display = ip_address
+
+        if vm_id:
+            try:
+                vm = VirtualMachine.objects.get(id=vm_id)
+                interfaces = list(vm.interfaces.all())
+
+                if interface_id and interface_id != "new":
+                    iface = VMInterface.objects.get(id=interface_id)
+                    if iface.ip_addresses.exists():
+                        ip_obj = iface.ip_addresses.first()
+                        ip_address_display = str(ip_obj.address.ip)
+                        prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
+                        if prefix_obj:
+                            selected_prefix = str(prefix_obj.id)
+                            selected_vrf = str(prefix_obj.vrf.id)
+            except VirtualMachine.DoesNotExist:
+                interfaces = []
+
+        prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"]) if selected_vrf else []
+
+        return render(request, self.template_name, {
+            "mode": "existing_vm",
+            "vms": VirtualMachine.objects.all(),
+            "vrfs": VRF.objects.all(),
+            "prefixes": prefixes,
+            "interfaces": interfaces,
+            "selected_vm": vm_id,
+            "selected_interface": interface_id,
+            "selected_vrf": selected_vrf,
+            "selected_prefix": selected_prefix or prefix_id,
+            "ip_address": ip_address_display,
+            "auto_ip": auto_ip,
+        })
+
+    def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip):
+        try:
+            if not vm_id or not prefix_id:
+                raise ValueError("VM and Prefix must be selected.")
+            if not auto_ip and not ip_address:
+                raise ValueError("Primary IP must be provided if auto IP is not selected.")
+
+            vm = VirtualMachine.objects.get(id=vm_id)
+            prefix = Prefix.objects.get(id=prefix_id)
+
+            if not interface_id or interface_id == "new":
+                interface = VMInterface.objects.create(virtual_machine=vm, name=f"NIC-{vm.name}")
+            else:
+                interface = VMInterface.objects.get(id=interface_id)
+
+            if auto_ip:
+                network = ip_network(prefix.prefix)
+                assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
+                next_ip = next((str(host) for i, host in enumerate(network.hosts()) if i >= 5 and str(host) not in assigned_ips), None)
+                if not next_ip:
+                    raise ValueError("No available IP found.")
+                ip_address = f"{next_ip}/32"
+            else:
+                if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
+                    raise ValueError("Invalid IP format.")
+                ip_address = f"{ip_address}/32"
+
+            with transaction.atomic():
+                ip_obj = IPAddress.objects.create(address=ip_address)
+                interface.ip_addresses.add(ip_obj)
+                vm.primary_ip4 = ip_obj
+                vm.save()
+
+            messages.success(request, f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}', extra_tags="safe")
+            return render(request, self.template_name, {"mode": "initial"})
+
+        except Exception as e:
+            messages.error(request, f"Failed to apply changes: {e}")
+            return self.handle_existing_vm(request)
+
 
 class SerialChecker(View):
     template_name = 'nbtools/serial_checker.html'
