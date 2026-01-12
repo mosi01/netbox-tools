@@ -1,4 +1,3 @@
-
 {% extends 'base/layout.html' %}
 
 {% block header %}
@@ -160,11 +159,17 @@ document.addEventListener("DOMContentLoaded", function () {
     const ipInput = document.getElementById("ip_address");
 
     function showInfoAndSubmit(actionValue) {
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "alert alert-info mt-3";
+        infoDiv.textContent = "Please wait... Gathering information.";
+        form.parentNode.insertBefore(infoDiv, form);
+
         const hiddenAction = document.createElement("input");
         hiddenAction.type = "hidden";
         hiddenAction.name = "action";
         hiddenAction.value = actionValue;
         form.appendChild(hiddenAction);
+
         form.submit();
     }
 
