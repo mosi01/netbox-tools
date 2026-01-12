@@ -286,8 +286,6 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -302,14 +300,15 @@ class VMToolView(View):
             "vrfs": VRF.objects.all(),
             "prefixes": [],
             "popup_message": "",
-            "info_message": ""
+            "info_message": "",
+            "error_message": ""
         })
 
     def post(self, request):
         action = request.POST.get("action")
 
         if action == "cancel":
-            return render(request, self.template_name, {"mode": "initial", "popup_message": "", "info_message": ""})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": "", "info_message": "", "error_message": ""})
 
         if action == "new_vm":
             return render(request, self.template_name, {
@@ -318,11 +317,15 @@ class VMToolView(View):
                 "sites": Site.objects.all(),
                 "clusters": Cluster.objects.all(),
                 "popup_message": "",
-                "info_message": ""
+                "info_message": "",
+                "error_message": ""
             })
 
         if action == "create_vm":
             return self.create_vm(request)
+
+        if action == "apply_changes":
+            return self.apply_changes(request)
 
         return self.handle_existing_vm(request)
 
@@ -347,7 +350,7 @@ class VMToolView(View):
             )
 
             popup_message = f'{vm.name} created successfully!'
-            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": ""})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": "", "error_message": ""})
 
         except Exception as e:
             return render(request, self.template_name, {
@@ -360,11 +363,12 @@ class VMToolView(View):
                 "role_id": role_id,
                 "site_id": site_id,
                 "cluster_id": cluster_id,
-                "popup_message": f"Failed to create VM: {e}",
-                "info_message": ""
+                "popup_message": "",
+                "info_message": "",
+                "error_message": f"Failed to create VM: {e}"
             })
 
-    def handle_existing_vm(self, request):
+    def handle_existing_vm(self, request, error_message=""):
         vm_id = request.POST.get("vm")
         interface_id = request.POST.get("interface")
         selected_vrf = request.POST.get("vrf")
@@ -381,14 +385,12 @@ class VMToolView(View):
                 vm = VirtualMachine.objects.get(id=vm_id)
                 interfaces = list(vm.interfaces.all())
 
-                # When NIC is selected, fetch Primary IP, Prefix, and VRF
                 if interface_id and interface_id != "new":
                     iface = VMInterface.objects.get(id=interface_id)
                     if iface.ip_addresses.exists():
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # Fetch Prefix Parent (only active or reserved)
                         prefix_obj = Prefix.objects.filter(
                             prefix__net_contains=ip_obj.address,
                             status__in=["active", "reserved"]
@@ -397,12 +399,10 @@ class VMToolView(View):
                             selected_prefix = str(prefix_obj.id)
                             selected_vrf = str(prefix_obj.vrf.id)
 
-                        # Build info message
                         info_message = f"For the selected NIC, fetched Primary IP: {ip_address_display}, VRF: {prefix_obj.vrf.name if prefix_obj else 'None'}, IP Prefix: {prefix_obj.prefix if prefix_obj else 'None'}"
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
-        # Fetch prefixes based on VRF (only active or reserved)
         prefixes = []
         if selected_vrf:
             prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
@@ -422,15 +422,25 @@ class VMToolView(View):
             "ip_address": ip_address_display,
             "auto_ip": auto_ip,
             "popup_message": "",
-            "info_message": info_message
+            "info_message": info_message,
+            "error_message": error_message
         })
 
-    def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf):
+    def apply_changes(self, request):
+        vm_id = request.POST.get("vm")
+        interface_id = request.POST.get("interface")
+        prefix_id = request.POST.get("prefix")
+        ip_address = request.POST.get("ip_address", "").strip()
+        auto_ip = request.POST.get("auto_ip") == "on"
+        selected_vrf = request.POST.get("vrf")
+
         try:
             if not vm_id or not prefix_id:
                 raise ValueError("VM and Prefix must be selected.")
             if not auto_ip and not ip_address:
                 raise ValueError("Primary IP must be provided if auto IP is not selected.")
+            if not auto_ip and not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
+                raise ValueError("Invalid IP format.")
 
             vm = VirtualMachine.objects.get(id=vm_id)
             prefix = Prefix.objects.get(id=prefix_id)
@@ -451,8 +461,6 @@ class VMToolView(View):
                     raise ValueError("No available IP found.")
                 ip_address = f"{next_ip}/32"
             else:
-                if not re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip_address):
-                    raise ValueError("Invalid IP format.")
                 ip_address = f"{ip_address}/32"
 
             with transaction.atomic():
@@ -462,11 +470,10 @@ class VMToolView(View):
                 vm.save()
 
             popup_message = f'{vm.name} was successfully updated and assigned to IP: {ip_address}'
-            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": ""})
+            return render(request, self.template_name, {"mode": "initial", "popup_message": popup_message, "info_message": "", "error_message": ""})
 
         except Exception as e:
-            return self.handle_existing_vm(request)
-
+            return self.handle_existing_vm(request, error_message=str(e))
 
 
 class SerialChecker(View):
