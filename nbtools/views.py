@@ -294,7 +294,6 @@ class DocumentationReviewerView(View):
 
 
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -396,7 +395,7 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # FIX: Correct prefix lookup
+                        # Correct prefix lookup
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
@@ -404,7 +403,12 @@ class VMToolView(View):
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
-        prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"]) if selected_vrf else []
+        # FIX: Ensure prefix list includes selected prefix even if VRF wasn't chosen
+        prefixes = []
+        if selected_vrf:
+            prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
+        elif selected_prefix:
+            prefixes = Prefix.objects.filter(id=selected_prefix)
 
         return render(request, self.template_name, {
             "mode": "existing_vm",
