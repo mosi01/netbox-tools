@@ -12,8 +12,8 @@ from ipaddress import ip_network
 from ipam.models import Prefix, VRF, IPAddress
 
 
-from dcim.models import Device
-from virtualization.models import VirtualMachine
+from dcim.models import Device, DeviceRole, Site
+from virtualization.models import VirtualMachine, Cluster
 from django.contrib.contenttypes.models import ContentType
 from django.contrib import messages
 
@@ -293,6 +293,60 @@ class DocumentationReviewerView(View):
 
 
 
+
+class VMIPAssignerView(View):
+    template_name = "nbtools/vm_ip_assigner.html"
+
+    def get(self, request):
+        # Initial GUI with two buttons
+        return render(request, self.template_name, {
+            "mode": "initial",
+            "roles": DeviceRole.objects.all(),
+            "sites": Site.objects.all(),
+            "clusters": Cluster.objects.all(),
+        })
+
+    def post(self, request):
+        action = request.POST.get("action")
+        if action == "new_vm":
+            return render(request, self.template_name, {
+                "mode": "new_vm",
+                "roles": DeviceRole.objects.all(),
+                "sites": Site.objects.all(),
+                "clusters": Cluster.objects.all(),
+            })
+        elif action == "create_vm":
+            name = request.POST.get("name")
+            role_id = request.POST.get("role")
+            description = request.POST.get("description")
+            site_id = request.POST.get("site")
+            cluster_id = request.POST.get("cluster")
+
+            try:
+                with transaction.atomic():
+                    vm = VirtualMachine.objects.create(
+                        name=name,
+                        role_id=role_id,
+                        description=description,
+                        site_id=site_id,
+                        cluster_id=cluster_id,
+                        status="active"
+                    )
+                messages.success(request, f"VM '{vm.name}' created successfully!")
+                return render(request, self.template_name, {"mode": "initial"})
+            except Exception as e:
+                messages.error(request, f"Failed to create VM: {e}")
+                return render(request, self.template_name, {
+                    "mode": "new_vm",
+                    "roles": DeviceRole.objects.all(),
+                    "sites": Site.objects.all(),
+                    "clusters": Cluster.objects.all(),
+                    "name": name,
+                    "description": description,
+                    "role_id": role_id,
+                    "site_id": site_id,
+                    "cluster_id": cluster_id,
+                })
 
 
 
