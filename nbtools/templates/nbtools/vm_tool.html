@@ -8,9 +8,12 @@
 <div class="container">
     <!-- Popup message -->
     {% if popup_message %}
-        <div id="popup-message" class="alert alert-info" style="display:none;">
-            {{ popup_message }}
-        </div>
+        <div id="popup-message" class="alert alert-info" style="display:none;"></div>
+    {% endif %}
+    {% if error_message %}
+        <div class="alert alert-danger mt-3">{{ error_message }}</div>
+    {% endif %}
+
         <script>
             document.addEventListener("DOMContentLoaded", function () {
                 const popup = document.getElementById("popup-message");
