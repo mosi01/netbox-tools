@@ -103,11 +103,6 @@ class IPPrefixCheckerView(View):
         }
 
 
-
-
-
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class PrefixValidatorView(View):
     template_name = "nbtools/prefix_validator.html"
@@ -153,8 +148,6 @@ class PrefixValidatorView(View):
             "vrfs": vrfs,
             "results": results
         })
-
-
 
 
 
@@ -291,6 +284,7 @@ class DocumentationReviewerView(View):
         }
 
         return render(request, self.template_name, context)
+
 
 
 
