@@ -1,3 +1,4 @@
+
 {% extends 'base/layout.html' %}
 
 {% block header %}
@@ -33,13 +34,11 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="create_vm">
 
-            <!-- Name -->
             <div class="mb-3">
                 <label for="name" class="form-label">Name*</label>
                 <input type="text" id="name" name="name" class="form-control" value="{{ name|default:'' }}" required>
             </div>
 
-            <!-- Role -->
             <div class="mb-3">
                 <label for="role" class="form-label">Role</label>
                 <select id="role" name="role" class="form-select">
@@ -51,13 +50,11 @@
                 </select>
             </div>
 
-            <!-- Description -->
             <div class="mb-3">
                 <label for="description" class="form-label">Description</label>
                 <textarea id="description" name="description" class="form-control">{{ description|default:'' }}</textarea>
             </div>
 
-            <!-- Site -->
             <div class="mb-3">
                 <label for="site" class="form-label">Site</label>
                 <select id="site" name="site" class="form-select">
@@ -69,7 +66,6 @@
                 </select>
             </div>
 
-            <!-- Cluster -->
             <div class="mb-3">
                 <label for="cluster" class="form-label">Cluster</label>
                 <select id="cluster" name="cluster" class="form-select">
@@ -81,7 +77,6 @@
                 </select>
             </div>
 
-            <!-- Buttons -->
             <button type="submit" class="btn btn-success">Create</button>
             <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
         </form>
@@ -94,7 +89,6 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="apply_changes">
 
-            <!-- Virtual Machine -->
             <div class="mb-3">
                 <label for="vm" class="form-label">Virtual Machine</label>
                 <select id="vm" name="vm" class="form-select">
@@ -107,16 +101,13 @@
                 </select>
             </div>
 
-            <!-- Network Interface -->
             <div class="mb-3">
                 <label for="interface" class="form-label">Network Interface</label>
                 <select id="interface" name="interface" class="form-select">
                     <option value="">Select Interface</option>
-                    <!-- Options will be dynamically loaded via JS -->
                 </select>
             </div>
 
-            <!-- IP Prefix Selection -->
             <div class="mb-3">
                 <label for="prefix" class="form-label">IP Prefix Selection</label>
                 <select id="prefix" name="prefix" class="form-select">
@@ -129,20 +120,22 @@
                 </select>
             </div>
 
-            <!-- Primary IP -->
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="auto_ip" name="auto_ip">
+                <label class="form-check-label" for="auto_ip">Pick next available IP</label>
+            </div>
+
             <div class="mb-3">
                 <label for="ip_address" class="form-label">Primary IP of Device (x.x.x.x)</label>
                 <input type="text" id="ip_address" name="ip_address" class="form-control" value="{{ ip_address|default:'' }}">
             </div>
 
-            <!-- Buttons -->
             <button type="submit" id="apply-btn" class="btn btn-success" disabled>Make Changes</button>
             <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
         </form>
     {% endif %}
 </div>
 
-<!-- Dynamic JS -->
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const vmSelect = document.getElementById("vm");
@@ -150,8 +143,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const applyBtn = document.getElementById("apply-btn");
     const ipInput = document.getElementById("ip_address");
     const prefixSelect = document.getElementById("prefix");
+    const autoIpCheckbox = document.getElementById("auto_ip");
 
-    // Load interfaces dynamically when VM changes
     vmSelect.addEventListener("change", function () {
         const vmId = vmSelect.value;
         interfaceSelect.innerHTML = '<option value="">Loading...</option>';
@@ -180,15 +173,23 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // Enable Apply button only if changes are made
+    autoIpCheckbox.addEventListener("change", function () {
+        ipInput.disabled = autoIpCheckbox.checked;
+    });
+
     function toggleApplyButton() {
-        applyBtn.disabled = !(vmSelect.value && (interfaceSelect.value || ipInput.value || prefixSelect.value));
+        const vmFilled = vmSelect.value;
+        const ifaceFilled = interfaceSelect.value;
+        const prefixFilled = prefixSelect.value;
+        const ipFilled = autoIpCheckbox.checked || ipInput.value.trim() !== "";
+        applyBtn.disabled = !(vmFilled && ifaceFilled && prefixFilled && ipFilled);
     }
 
     vmSelect.addEventListener("change", toggleApplyButton);
     interfaceSelect.addEventListener("change", toggleApplyButton);
-    ipInput.addEventListener("input", toggleApplyButton);
     prefixSelect.addEventListener("change", toggleApplyButton);
+    ipInput.addEventListener("input", toggleApplyButton);
+    autoIpCheckbox.addEventListener("change", toggleApplyButton);
 });
 </script>
 {% endblock content %}
