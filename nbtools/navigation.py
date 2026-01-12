@@ -25,6 +25,11 @@ menu = PluginMenu(
                     link='plugins:nbtools:serial_checker',
                     link_text='Serial Number Checker',
                     auth_required=True,
+                ),         
+                PluginMenuItem(
+                    link='plugins:nbtools:vm_ip_assigner',
+                    link_text='VM Tool',
+                    auth_required=True,
                 ),
             ),
         ),
