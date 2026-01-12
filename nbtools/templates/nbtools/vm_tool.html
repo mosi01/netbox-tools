@@ -1,10 +1,11 @@
 {% extends 'base/layout.html' %}
+
 {% block header %}
 <h1>VM Tool</h1>
 {% endblock header %}
+
 {% block content %}
 <div class="container">
-
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }}">{{ message|safe }}</div>
@@ -25,11 +26,44 @@
         <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_vm">
-            <div class="mb-3"><label>Name*</label><input type="text" name="name" class="form-control" value="{{ name|default:'' }}" required></div>
-            <div class="mb-3"><label>Role</label><select name="role" class="form-select">{% for role in roles %}<option value="{{ role.id }}">{{ role.name }}</option>{% endfor %}</select></div>
-            <div class="mb-3"><label>Description</label><textarea name="description" class="form-control">{{ description|default:'' }}</textarea></div>
-            <div class="mb-3"><label>Site</label><select name="site" class="form-select">{% for site in sites %}<option value="{{ site.id }}">{{ site.name }}</option>{% endfor %}</select></div>
-            <div class="mb-3"><label>Cluster</label><select name="cluster" class="form-select">{% for cluster in clusters %}<option value="{{ cluster.id }}">{{ cluster.name }}</option>{% endfor %}</select></div>
+
+            <div class="mb-3">
+                <label>Name*</label>
+                <input type="text" name="name" class="form-control" value="{{ name|default:'' }}" required>
+            </div>
+
+            <div class="mb-3">
+                <label>Role</label>
+                <select name="role" class="form-select">
+                    {% for role in roles %}
+                        <option value="{{ role.id }}">{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>Description</label>
+                <textarea name="description" class="form-control">{{ description|default:'' }}</textarea>
+            </div>
+
+            <div class="mb-3">
+                <label>Site</label>
+                <select name="site" class="form-select">
+                    {% for site in sites %}
+                        <option value="{{ site.id }}">{{ site.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label>Cluster</label>
+                <select name="cluster" class="form-select">
+                    {% for cluster in clusters %}
+                        <option value="{{ cluster.id }}">{{ cluster.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             <button type="submit" class="btn btn-success">Create</button>
             <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
         </form>
@@ -125,6 +159,7 @@ document.addEventListener("DOMContentLoaded", function () {
         hiddenAction.name = "action";
         hiddenAction.value = actionValue;
         form.appendChild(hiddenAction);
+
         form.submit();
     }
 
