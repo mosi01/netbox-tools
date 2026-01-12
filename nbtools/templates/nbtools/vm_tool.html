@@ -1,0 +1,194 @@
+{% extends 'base/layout.html' %}
+
+{% block header %}
+<h1>VM Tool</h1>
+{% endblock header %}
+
+{% block content %}
+<div class="container">
+
+    <!-- Display messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Initial GUI -->
+    {% if mode == "initial" %}
+        <p class="mb-3">
+            This plugin will help you to either create a new VM and assign IP, or help you assign an IP to an already existing VM.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="action" value="new_vm" class="btn btn-primary">New VM</button>
+            <button type="submit" name="action" value="existing_vm" class="btn btn-secondary">Existing VM</button>
+        </form>
+    {% endif %}
+
+    <!-- New VM GUI -->
+    {% if mode == "new_vm" %}
+        <h4 class="mt-4">Create New VM</h4>
+        <form method="post" class="mt-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_vm">
+
+            <!-- Name -->
+            <div class="mb-3">
+                <label for="name" class="form-label">Name*</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ name|default:'' }}" required>
+            </div>
+
+            <!-- Role -->
+            <div class="mb-3">
+                <label for="role" class="form-label">Role</label>
+                <select id="role" name="role" class="form-select">
+                    {% for role in roles %}
+                        <option value="{{ role.id }}" {% if role.id|stringformat:"s" == role_id %}selected{% endif %}>
+                            {{ role.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Description -->
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control">{{ description|default:'' }}</textarea>
+            </div>
+
+            <!-- Site -->
+            <div class="mb-3">
+                <label for="site" class="form-label">Site</label>
+                <select id="site" name="site" class="form-select">
+                    {% for site in sites %}
+                        <option value="{{ site.id }}" {% if site.id|stringformat:"s" == site_id %}selected{% endif %}>
+                            {{ site.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Cluster -->
+            <div class="mb-3">
+                <label for="cluster" class="form-label">Cluster</label>
+                <select id="cluster" name="cluster" class="form-select">
+                    {% for cluster in clusters %}
+                        <option value="{{ cluster.id }}" {% if cluster.id|stringformat:"s" == cluster_id %}selected{% endif %}>
+                            {{ cluster.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <button type="submit" class="btn btn-success">Create</button>
+            <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    {% endif %}
+
+    <!-- Existing VM GUI -->
+    {% if mode == "existing_vm" %}
+        <h4 class="mt-4">Modify Existing VM</h4>
+        <form method="post" id="existing-vm-form" class="mt-3">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="apply_changes">
+
+            <!-- Virtual Machine -->
+            <div class="mb-3">
+                <label for="vm" class="form-label">Virtual Machine</label>
+                <select id="vm" name="vm" class="form-select">
+                    <option value="">Select VM</option>
+                    {% for vm in vms %}
+                        <option value="{{ vm.id }}" {% if vm.id|stringformat:"s" == selected_vm %}selected{% endif %}>
+                            {{ vm.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Network Interface -->
+            <div class="mb-3">
+                <label for="interface" class="form-label">Network Interface</label>
+                <select id="interface" name="interface" class="form-select">
+                    <option value="">Select Interface</option>
+                    <!-- Options will be dynamically loaded via JS -->
+                </select>
+            </div>
+
+            <!-- IP Prefix Selection -->
+            <div class="mb-3">
+                <label for="prefix" class="form-label">IP Prefix Selection</label>
+                <select id="prefix" name="prefix" class="form-select">
+                    <option value="">Select Prefix</option>
+                    {% for prefix in prefixes %}
+                        <option value="{{ prefix.id }}" {% if prefix.id|stringformat:"s" == selected_prefix %}selected{% endif %}>
+                            {{ prefix.prefix }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Primary IP -->
+            <div class="mb-3">
+                <label for="ip_address" class="form-label">Primary IP of Device (x.x.x.x)</label>
+                <input type="text" id="ip_address" name="ip_address" class="form-control" value="{{ ip_address|default:'' }}">
+            </div>
+
+            <!-- Buttons -->
+            <button type="submit" id="apply-btn" class="btn btn-success" disabled>Make Changes</button>
+            <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    {% endif %}
+</div>
+
+<!-- Dynamic JS -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const vmSelect = document.getElementById("vm");
+    const interfaceSelect = document.getElementById("interface");
+    const applyBtn = document.getElementById("apply-btn");
+    const ipInput = document.getElementById("ip_address");
+    const prefixSelect = document.getElementById("prefix");
+
+    // Load interfaces dynamically when VM changes
+    vmSelect.addEventListener("change", function () {
+        const vmId = vmSelect.value;
+        interfaceSelect.innerHTML = '<option value="">Loading...</option>';
+
+        if (vmId) {
+            fetch(`/api/virtualization/interfaces/?virtual_machine_id=${vmId}`)
+                .then(response => response.json())
+                .then(data => {
+                    interfaceSelect.innerHTML = '';
+                    if (data.results.length > 0) {
+                        data.results.forEach(iface => {
+                            const option = document.createElement("option");
+                            option.value = iface.id;
+                            option.textContent = iface.name;
+                            interfaceSelect.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement("option");
+                        option.value = "new";
+                        option.textContent = "Create a new Interface";
+                        interfaceSelect.appendChild(option);
+                    }
+                });
+        } else {
+            interfaceSelect.innerHTML = '<option value="">Select Interface</option>';
+        }
+    });
+
+    // Enable Apply button only if changes are made
+    function toggleApplyButton() {
+        applyBtn.disabled = !(vmSelect.value && (interfaceSelect.value || ipInput.value || prefixSelect.value));
+    }
+
+    vmSelect.addEventListener("change", toggleApplyButton);
+    interfaceSelect.addEventListener("change", toggleApplyButton);
+    ipInput.addEventListener("input", toggleApplyButton);
+    prefixSelect.addEventListener("change", toggleApplyButton);
+});
+</script>
+{% endblock content %}
