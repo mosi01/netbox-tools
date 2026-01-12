@@ -97,6 +97,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const vmSelect = document.getElementById("vm");
+    const nicSelect = document.getElementById("interface");
     const form = document.getElementById("existing-vm-form");
     const autoIpCheckbox = document.getElementById("auto_ip");
     const ipInput = document.getElementById("ip_address");
@@ -104,6 +105,23 @@ document.addEventListener("DOMContentLoaded", function () {
     // Reload form when VM changes, show info message
     if (vmSelect) {
         vmSelect.addEventListener("change", function () {
+            const infoDiv = document.createElement("div");
+            infoDiv.className = "alert alert-info mt-3";
+            infoDiv.textContent = "Please wait... Gathering information.";
+            form.parentNode.insertBefore(infoDiv, form);
+
+            const hiddenAction = document.createElement("input");
+            hiddenAction.type = "hidden";
+            hiddenAction.name = "action";
+            hiddenAction.value = "existing_vm";
+            form.appendChild(hiddenAction);
+            form.submit();
+        });
+    }
+
+    // Reload form when NIC changes, show info message
+    if (nicSelect) {
+        nicSelect.addEventListener("change", function () {
             const infoDiv = document.createElement("div");
             infoDiv.className = "alert alert-info mt-3";
             infoDiv.textContent = "Please wait... Gathering information.";
