@@ -1,14 +1,17 @@
 
 {% extends 'base/layout.html' %}
+
 {% block header %}
-<h1>Prefix Validator</h1>
+    <h1>Prefix Validator</h1>
 {% endblock header %}
 
 {% block content %}
 <div class="container">
+    <!-- Form for selecting two VRFs -->
     <form method="post">
         {% csrf_token %}
         <div class="mb-3">
+            <!-- Dropdown for Primary VRF -->
             <label for="primary_vrf" class="form-label">Primary VRF:</label>
             <select name="primary_vrf" id="primary_vrf" class="form-select">
                 <option value="">Select VRF</option>
@@ -19,6 +22,7 @@
         </div>
 
         <div class="mb-3">
+            <!-- Dropdown for Secondary VRF -->
             <label for="secondary_vrf" class="form-label">Secondary VRF:</label>
             <select name="secondary_vrf" id="secondary_vrf" class="form-select">
                 <option value="">Select VRF</option>
@@ -28,57 +32,61 @@
             </select>
         </div>
 
+        <!-- Button to verify prefixes -->
         <button type="submit" id="verify-btn" class="btn btn-primary" disabled>Verify Prefixes</button>
     </form>
 
     {% if results %}
-    <table class="table mt-4">
-        <thead>
-            <tr>
-                <th>Prefix</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in results %}
-            <tr class="
-                {% if row.active_overlaps %}table-danger
-                {% elif row.reserved_overlaps %}table-warning
-                {% else %}table-success{% endif %}
-            ">
-                <td>{{ row.prefix }}</td>
-                <td>
-                    {% if row.active_overlaps %}
-                        Overlaps with: {{ row.active_overlaps|join:", " }}
-                    {% endif %}
-                    {% if row.reserved_overlaps %}
-                        {% if row.active_overlaps %}<br>{% endif %}
-                        Overlaps with reserved prefix: {{ row.reserved_overlaps|join:", " }}
-                    {% endif %}
-                    {% if not row.active_overlaps and not row.reserved_overlaps %}
-                        No Overlaps
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <!-- Table displaying prefix validation results -->
+        <table class="table mt-4">
+            <thead>
+                <tr>
+                    <th>Prefix</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                    <tr class="
+                        {% if row.active_overlaps %}table-danger
+                        {% elif row.reserved_overlaps %}table-warning
+                        {% else %}table-success{% endif %}
+                    ">
+                        <td>{{ row.prefix }}</td>
+                        <td>
+                            {% if row.active_overlaps %}
+                                Overlaps with: {{ row.active_overlaps|join:", " }}
+                            {% endif %}
+                            {% if row.reserved_overlaps %}
+                                {% if row.active_overlaps %}<br>{% endif %}
+                                Overlaps with reserved prefix: {{ row.reserved_overlaps|join:", " }}
+                            {% endif %}
+                            {% if not row.active_overlaps and not row.reserved_overlaps %}
+                                No Overlaps
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     {% endif %}
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const primary = document.getElementById("primary_vrf");
-    const secondary = document.getElementById("secondary_vrf");
-    const button = document.getElementById("verify-btn");
+    document.addEventListener("DOMContentLoaded", function () {
+        // Selectors for dropdowns and button
+        const primary = document.getElementById("primary_vrf");
+        const secondary = document.getElementById("secondary_vrf");
+        const button = document.getElementById("verify-btn");
 
-    function toggleButton() {
-        button.disabled = !(primary.value && secondary.value);
-    }
+        // Enables/disables verify button based on selections
+        function toggleButton() {
+            button.disabled = !(primary.value && secondary.value);
+        }
 
-    primary.addEventListener("change", toggleButton);
-    secondary.addEventListener("change", toggleButton);
-});
+        // Event listeners for dropdown changes
+        primary.addEventListener("change", toggleButton);
+        secondary.addEventListener("change", toggleButton);
+    });
 </script>
 {% endblock content %}
-``

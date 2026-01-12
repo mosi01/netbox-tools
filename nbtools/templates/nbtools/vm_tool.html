@@ -1,20 +1,21 @@
+
 {% extends 'base/layout.html' %}
 
 {% block header %}
-<h1>VM Tool</h1>
+    <h1>VM Tool</h1>
 {% endblock header %}
 
 {% block content %}
 <div class="container">
-    <!-- Popup message -->
+    <!-- Popup message displayed temporarily -->
     {% if popup_message %}
         <div id="popup-message" class="alert alert-info" style="display:none;">
             {{ popup_message }}
         </div>
-
         <script>
             document.addEventListener("DOMContentLoaded", function () {
                 const popup = document.getElementById("popup-message");
+                // Show popup if message exists, then hide after 5 seconds
                 if (popup && popup.textContent.trim() !== "") {
                     popup.style.display = "block";
                     setTimeout(() => popup.style.display = "none", 5000);
@@ -23,17 +24,18 @@
         </script>
     {% endif %}
 
-    <!-- error message -->
+    <!-- Display error message if any -->
     {% if error_message %}
         <div class="alert alert-danger mt-3">{{ error_message }}</div>
     {% endif %}
 
-    <!-- Info message -->
+    <!-- Display info message if any -->
     {% if info_message %}
         <div class="alert alert-info mt-3">{{ info_message }}</div>
     {% endif %}
 
     {% if mode == "initial" %}
+        <!-- Initial mode: show options for new or existing VM -->
         <p>This tool will make it easier to create a new basic VM and to change/add NIC and IP to an existing VM.</p>
         <form method="post">
             {% csrf_token %}
@@ -43,16 +45,19 @@
     {% endif %}
 
     {% if mode == "new_vm" %}
+        <!-- Form for creating a new VM -->
         <h4>Create New VM</h4>
         <form method="post">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_vm">
 
+            <!-- VM Name -->
             <div class="mb-3">
                 <label>Name*</label>
                 <input type="text" name="name" class="form-control" value="{{ name|default:'' }}" required>
             </div>
 
+            <!-- VM Role -->
             <div class="mb-3">
                 <label>Role</label>
                 <select name="role" class="form-select">
@@ -62,11 +67,13 @@
                 </select>
             </div>
 
+            <!-- Description -->
             <div class="mb-3">
                 <label>Description</label>
                 <textarea name="description" class="form-control">{{ description|default:'' }}</textarea>
             </div>
 
+            <!-- Site -->
             <div class="mb-3">
                 <label>Site</label>
                 <select name="site" class="form-select">
@@ -76,6 +83,7 @@
                 </select>
             </div>
 
+            <!-- Cluster -->
             <div class="mb-3">
                 <label>Cluster</label>
                 <select name="cluster" class="form-select">
@@ -85,12 +93,14 @@
                 </select>
             </div>
 
+            <!-- Buttons -->
             <button type="submit" class="btn btn-success">Create</button>
             <button type="submit" name="action" value="cancel" class="btn btn-secondary">Cancel</button>
         </form>
     {% endif %}
 
     {% if mode == "existing_vm" %}
+        <!-- Form for modifying an existing VM -->
         <h4>Modify Existing VM</h4>
         <form method="post" id="existing-vm-form">
             {% csrf_token %}
@@ -101,7 +111,9 @@
                 <select name="vm" id="vm" class="form-select">
                     <option value="">Select VM</option>
                     {% for vm in vms %}
-                        <option value="{{ vm.id }}" {% if vm.id|stringformat:"s" == selected_vm %}selected{% endif %}>{{ vm.name }}</option>
+                        <option value="{{ vm.id }}" {% if vm.id|stringformat:"s" == selected_vm %}selected{% endif %}>
+                            {{ vm.name }}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -112,7 +124,9 @@
                 <select name="interface" id="interface" class="form-select">
                     {% if interfaces %}
                         {% for iface in interfaces %}
-                            <option value="{{ iface.id }}" {% if iface.id|stringformat:"s" == selected_interface %}selected{% endif %}>{{ iface.name }}</option>
+                            <option value="{{ iface.id }}" {% if iface.id|stringformat:"s" == selected_interface %}selected{% endif %}>
+                                {{ iface.name }}
+                            </option>
                         {% endfor %}
                     {% endif %}
                     <option value="new" {% if selected_interface == "new" %}selected{% endif %}>Create a new Interface</option>
@@ -125,7 +139,9 @@
                 <select name="vrf" id="vrf" class="form-select">
                     <option value="">Select VRF</option>
                     {% for vrf in vrfs %}
-                        <option value="{{ vrf.id }}" {% if vrf.id|stringformat:"s" == selected_vrf %}selected{% endif %}>{{ vrf.name }}</option>
+                        <option value="{{ vrf.id }}" {% if vrf.id|stringformat:"s" == selected_vrf %}selected{% endif %}>
+                            {{ vrf.name }}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -136,7 +152,9 @@
                 <select name="prefix" id="prefix" class="form-select">
                     <option value="">Select Prefix</option>
                     {% for prefix in prefixes %}
-                        <option value="{{ prefix.id }}" {% if prefix.id|stringformat:"s" == selected_prefix %}selected{% endif %}>{{ prefix.prefix }}</option>
+                        <option value="{{ prefix.id }}" {% if prefix.id|stringformat:"s" == selected_prefix %}selected{% endif %}>
+                            {{ prefix.prefix }}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -147,7 +165,7 @@
                 <label class="form-check-label" for="auto_ip">Pick next available IP</label>
             </div>
 
-            <!-- Primary IP -->
+            <!-- Primary IP input -->
             <div class="mb-3">
                 <label>Primary IP (x.x.x.x)</label>
                 <input type="text" id="ip_address" name="ip_address" class="form-control" value="{{ ip_address|default:'' }}" {% if auto_ip %}disabled{% endif %}>
@@ -160,34 +178,39 @@
     {% endif %}
 </div>
 
+<!-- JavaScript for dynamic form behavior -->
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const vmSelect = document.getElementById("vm");
-    const nicSelect = document.getElementById("interface");
-    const vrfSelect = document.getElementById("vrf");
-    const form = document.getElementById("existing-vm-form");
-    const autoIpCheckbox = document.getElementById("auto_ip");
-    const ipInput = document.getElementById("ip_address");
+    document.addEventListener("DOMContentLoaded", function () {
+        const vmSelect = document.getElementById("vm");
+        const nicSelect = document.getElementById("interface");
+        const vrfSelect = document.getElementById("vrf");
+        const form = document.getElementById("existing-vm-form");
+        const autoIpCheckbox = document.getElementById("auto_ip");
+        const ipInput = document.getElementById("ip_address");
 
-    function showInfoAndSubmit(actionValue) {
-        const infoDiv = document.createElement("div");
-        infoDiv.className = "alert alert-info mt-3";
-        infoDiv.textContent = "Please wait... Gathering information.";
-        form.parentNode.insertBefore(infoDiv, form);
+        // Shows info message and submits form with hidden action
+        function showInfoAndSubmit(actionValue) {
+            const infoDiv = document.createElement("div");
+            infoDiv.className = "alert alert-info mt-3";
+            infoDiv.textContent = "Please wait... Gathering information.";
+            form.parentNode.insertBefore(infoDiv, form);
 
-        const hiddenAction = document.createElement("input");
-        hiddenAction.type = "hidden";
-        hiddenAction.name = "action";
-        hiddenAction.value = actionValue;
-        form.appendChild(hiddenAction);
+            const hiddenAction = document.createElement("input");
+            hiddenAction.type = "hidden";
+            hiddenAction.name = "action";
+            hiddenAction.value = actionValue;
+            form.appendChild(hiddenAction);
 
-        form.submit();
-    }
+            form.submit();
+        }
 
-    if (vmSelect) vmSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
-    if (nicSelect) nicSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
-    if (vrfSelect) vrfSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
-    if (autoIpCheckbox) autoIpCheckbox.addEventListener("change", () => ipInput.disabled = autoIpCheckbox.checked);
-});
+        // Event listeners for dropdown changes
+        if (vmSelect) vmSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+        if (nicSelect) nicSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+        if (vrfSelect) vrfSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
+
+        // Toggle IP input based on auto IP checkbox
+        if (autoIpCheckbox) autoIpCheckbox.addEventListener("change", () => ipInput.disabled = autoIpCheckbox.checked);
+    });
 </script>
 {% endblock content %}

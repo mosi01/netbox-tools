@@ -1,11 +1,17 @@
-from netbox.plugins import PluginMenu, PluginMenuItem
-from netbox.choices import ButtonColorChoices
 
+"""
+Plugin navigation configuration for NetBox Tools.
+Defines menu structure and items for the plugin.
+"""
+
+from netbox.plugins import PluginMenu, PluginMenuItem
+
+# Define the plugin menu
 menu = PluginMenu(
     label='NetBox Tools',
     icon_class='mdi mdi-tools',
-
     groups=(
+        # Dashboard group
         (
             '',
             (
@@ -16,16 +22,15 @@ menu = PluginMenu(
                 ),
             ),
         ),
-
-
+        # Infrastructure Tools group
         (
-            'Infrastucture Tools',
+            'Infrastructure Tools',
             (
                 PluginMenuItem(
                     link='plugins:nbtools:serial_checker',
                     link_text='Serial Number Checker',
                     auth_required=True,
-                ),         
+                ),
                 PluginMenuItem(
                     link='plugins:nbtools:vm_tool',
                     link_text='VM Tool',
@@ -33,7 +38,7 @@ menu = PluginMenu(
                 ),
             ),
         ),
-
+        # Networking Tools group
         (
             'Networking Tools',
             (
@@ -42,15 +47,14 @@ menu = PluginMenu(
                     link_text='Prefix Validator',
                     auth_required=True,
                 ),
-
                 PluginMenuItem(
                     link='plugins:nbtools:ip_prefix_checker',
                     link_text='IP Prefix Checker',
                     auth_required=True,
                 ),
-
             ),
         ),
+        # Documentation Tools group
         (
             'Documentation Tools',
             (
