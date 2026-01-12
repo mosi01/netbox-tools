@@ -293,6 +293,7 @@ class DocumentationReviewerView(View):
         return render(request, self.template_name, context)
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -373,7 +374,7 @@ class VMToolView(View):
         auto_ip = request.POST.get("auto_ip") == "on"
 
         if request.POST.get("action") == "apply_changes":
-            return self.apply_changes(request, vm_id, interface_id, prefix_id, ip_address, auto_ip)
+            return self.apply_changes(request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf)
 
         interfaces = []
         selected_prefix = None
@@ -390,7 +391,7 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        # FIX: Ensure prefix is found correctly
+                        # Ensure prefix is found correctly
                         prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address.ip).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
@@ -414,7 +415,7 @@ class VMToolView(View):
             "auto_ip": auto_ip,
         })
 
-    def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip):
+    def apply_changes(self, request, vm_id, interface_id, prefix_id, ip_address, auto_ip, selected_vrf):
         try:
             if not vm_id or not prefix_id:
                 raise ValueError("VM and Prefix must be selected.")
@@ -429,6 +430,10 @@ class VMToolView(View):
             else:
                 interface = VMInterface.objects.get(id=interface_id)
 
+            # Remove existing IPs from NIC before adding new one
+            if interface.ip_addresses.exists():
+                interface.ip_addresses.clear()
+
             if auto_ip:
                 network = ip_network(prefix.prefix)
                 assigned_ips = {str(ip.address.ip) for ip in IPAddress.objects.filter(address__net_contained=prefix.prefix)}
@@ -442,7 +447,7 @@ class VMToolView(View):
                 ip_address = f"{ip_address}/32"
 
             with transaction.atomic():
-                ip_obj = IPAddress.objects.create(address=ip_address)
+                ip_obj = IPAddress.objects.create(address=ip_address, vrf_id=selected_vrf)  # ✅ Assign VRF
                 interface.ip_addresses.add(ip_obj)
                 vm.primary_ip4 = ip_obj
                 vm.save()
@@ -453,6 +458,7 @@ class VMToolView(View):
         except Exception as e:
             messages.error(request, f"Failed to apply changes: {e}")
             return self.handle_existing_vm(request)
+
 
 
 class SerialChecker(View):
