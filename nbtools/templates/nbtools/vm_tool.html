@@ -11,7 +11,7 @@
     <!-- Display messages -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            <div class="alert alert-{{ message.tags }}">{{ message|safe }}</div>
         {% endfor %}
     {% endif %}
 
@@ -78,7 +78,6 @@
             </div>
 
             <button type="submit" class="btn btn-success">Create</button>
-            <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
         </form>
     {% endif %}
 
@@ -131,7 +130,6 @@
             </div>
 
             <button type="submit" id="apply-btn" class="btn btn-success" disabled>Make Changes</button>
-            <a href="{% url 'plugins:nbtools:vm_tool' %}" class="btn btn-secondary">Cancel</a>
         </form>
     {% endif %}
 </div>
@@ -150,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function () {
         interfaceSelect.innerHTML = '<option value="">Loading...</option>';
 
         if (vmId) {
-            fetch(`/api/virtualization/interfaces/?virtual_machine_id=${vmId}`)
+            fetch(`/api/virtualization/interfaces/?virtual_machine=${vmId}`)
                 .then(response => response.json())
                 .then(data => {
                     interfaceSelect.innerHTML = '';
