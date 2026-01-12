@@ -101,9 +101,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const autoIpCheckbox = document.getElementById("auto_ip");
     const ipInput = document.getElementById("ip_address");
 
-    // Reload form when VM changes, but set action to existing_vm
+    // Reload form when VM changes, show info message
     if (vmSelect) {
         vmSelect.addEventListener("change", function () {
+            const infoDiv = document.createElement("div");
+            infoDiv.className = "alert alert-info mt-3";
+            infoDiv.textContent = "Please wait... Gathering information.";
+            form.parentNode.insertBefore(infoDiv, form);
+
             const hiddenAction = document.createElement("input");
             hiddenAction.type = "hidden";
             hiddenAction.name = "action";
