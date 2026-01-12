@@ -287,6 +287,7 @@ class DocumentationReviewerView(View):
 
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
@@ -387,7 +388,11 @@ class VMToolView(View):
                         ip_obj = iface.ip_addresses.first()
                         ip_address_display = str(ip_obj.address.ip)
 
-                        prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
+                        # Fetch Prefix Parent (only active or reserved)
+                        prefix_obj = Prefix.objects.filter(
+                            prefix__net_contains=ip_obj.address,
+                            status__in=["active", "reserved"]
+                        ).first()
                         if prefix_obj:
                             selected_prefix = str(prefix_obj.id)
                             selected_vrf = str(prefix_obj.vrf.id)
@@ -397,7 +402,7 @@ class VMToolView(View):
             except VirtualMachine.DoesNotExist:
                 interfaces = []
 
-        # Fetch prefixes based on VRF
+        # Fetch prefixes based on VRF (only active or reserved)
         prefixes = []
         if selected_vrf:
             prefixes = Prefix.objects.filter(vrf_id=selected_vrf, status__in=["active", "reserved"])
