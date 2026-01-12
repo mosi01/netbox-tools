@@ -292,6 +292,7 @@ class DocumentationReviewerView(View):
 
         return render(request, self.template_name, context)
 
+
 class VMToolView(View):
     template_name = "nbtools/vm_tool.html"
 
@@ -341,7 +342,7 @@ class VMToolView(View):
 
                 messages.success(
                     request,
-                    f'VM <a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> created successfully!',
+                    f'VM <a href="{vm.get_absolute_url()}">{vm.name}</a> created successfully!',
                     extra_tags="safe"
                 )
                 return render(request, self.template_name, {"mode": "initial"})
@@ -401,7 +402,7 @@ class VMToolView(View):
 
                 messages.success(
                     request,
-                    f'<a href="{vm.get_absolute_url()}" target="_blank">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
+                    f'<a href="{vm.get_absolute_url()}">{vm.name}</a> was successfully updated and assigned to IP: {ip_address}',
                     extra_tags="safe"
                 )
                 return render(request, self.template_name, {"mode": "initial"})
@@ -409,12 +410,24 @@ class VMToolView(View):
             except Exception as e:
                 messages.error(request, f"Failed to apply changes: {e}")
                 interfaces = []
+                selected_prefix = None
+                ip_address_display = ip_address
+
                 if vm_id:
                     try:
                         vm = VirtualMachine.objects.get(id=vm_id)
                         interfaces = list(vm.interfaces.all())
+                        if interface_id and interface_id != "new":
+                            iface = VMInterface.objects.get(id=interface_id)
+                            if iface.ip_addresses.exists():
+                                ip_obj = iface.ip_addresses.first()
+                                ip_address_display = str(ip_obj.address.ip)
+                                prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
+                                if prefix_obj:
+                                    selected_prefix = str(prefix_obj.id)
                     except VirtualMachine.DoesNotExist:
                         interfaces = []
+
                 return render(request, self.template_name, {
                     "mode": "existing_vm",
                     "vms": VirtualMachine.objects.all(),
@@ -422,18 +435,30 @@ class VMToolView(View):
                     "interfaces": interfaces,
                     "selected_vm": vm_id,
                     "selected_interface": interface_id,
-                    "selected_prefix": prefix_id,
-                    "ip_address": ip_address,
+                    "selected_prefix": selected_prefix or prefix_id,
+                    "ip_address": ip_address_display,
                     "auto_ip": auto_ip,
                 })
 
         if action == "existing_vm" or request.POST.get("vm"):
             vm_id = request.POST.get("vm")
             interfaces = []
+            selected_prefix = None
+            ip_address_display = None
+            selected_interface = request.POST.get("interface")
+
             if vm_id:
                 try:
                     vm = VirtualMachine.objects.get(id=vm_id)
                     interfaces = list(vm.interfaces.all())
+                    if selected_interface and selected_interface != "new":
+                        iface = VMInterface.objects.get(id=selected_interface)
+                        if iface.ip_addresses.exists():
+                            ip_obj = iface.ip_addresses.first()
+                            ip_address_display = str(ip_obj.address.ip)
+                            prefix_obj = Prefix.objects.filter(prefix__net_contains=ip_obj.address).first()
+                            if prefix_obj:
+                                selected_prefix = str(prefix_obj.id)
                 except VirtualMachine.DoesNotExist:
                     interfaces = []
 
@@ -443,9 +468,9 @@ class VMToolView(View):
                 "prefixes": Prefix.objects.all(),
                 "interfaces": interfaces,
                 "selected_vm": vm_id,
-                "selected_interface": request.POST.get("interface"),
-                "selected_prefix": request.POST.get("prefix"),
-                "ip_address": request.POST.get("ip_address"),
+                "selected_interface": selected_interface,
+                "selected_prefix": selected_prefix,
+                "ip_address": ip_address_display,
                 "auto_ip": request.POST.get("auto_ip") == "on",
             })
 
