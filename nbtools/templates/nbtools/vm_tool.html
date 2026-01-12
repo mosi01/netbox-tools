@@ -125,7 +125,7 @@
                 <select name="prefix" id="prefix" class="form-select">
                     <option value="">Select Prefix</option>
                     {% for prefix in prefixes %}
-                        <option value="{{ prefix.id }}" {% if prefix.id|stringformat:"s" == selected_prefix %}selected{% endif %}>{{ prefix.prefix }}</option>
+                        <option value="{{ prefix.id }}">{{ prefix.prefix }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -177,6 +177,20 @@ document.addEventListener("DOMContentLoaded", function () {
     if (nicSelect) nicSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
     if (vrfSelect) vrfSelect.addEventListener("change", () => showInfoAndSubmit("existing_vm"));
     if (autoIpCheckbox) autoIpCheckbox.addEventListener("change", () => ipInput.disabled = autoIpCheckbox.checked);
+
+    // Ensure prefix is selected after options load
+    const prefixSelect = document.getElementById("prefix");
+    const selectedPrefix = "{{ selected_prefix }}";
+    if (prefixSelect && selectedPrefix) {
+        setTimeout(() => {
+            for (let option of prefixSelect.options) {
+                if (option.value === selectedPrefix) {
+                    option.selected = true;
+                    break;
+                }
+            }
+        }, 100);
+    }
 });
 </script>
 {% endblock content %}
