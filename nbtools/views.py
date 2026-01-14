@@ -25,9 +25,11 @@ from django.contrib import messages
 import logging
 import time
 import re
+import csv
+
 logger = logging.getLogger("nbtools")
 
-import re
+
 
 def dashboard(request):
 
@@ -37,6 +39,7 @@ def dashboard(request):
 	}
 
 	return render(request, "nbtools/dashboard.html", context)
+
 
 
 
@@ -61,6 +64,8 @@ class DocumentationBindingView(View):
             )
         elif action == "sync":
             self.sync_sharepoint()
+        elif action == "test":
+            return self.test_sharepoint()
         return redirect("plugins:nbtools:documentation_binding")
 
     def sync_sharepoint(self):
@@ -89,10 +94,51 @@ class DocumentationBindingView(View):
                         }
                     )
 
+    def test_sharepoint(self):
+        config = SharePointConfig.objects.first()
+        if not config:
+            return HttpResponse("No configuration found.", content_type="text/plain")
+
+        ctx = ClientContext(config.site_url).with_credentials(UserCredential(config.username, config.password))
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="sharepoint_test.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Category", "Server Name", "Application Name", "File Name", "Version", "File Type", "SharePoint URL"])
+
+        for category, path in config.folder_mappings.items():
+            folder = ctx.web.get_folder_by_server_relative_url(path)
+            files = folder.files
+            ctx.load(files)
+            ctx.execute_query()
+            for file in files:
+                name = file.properties["Name"]
+                url = file.properties["ServerRelativeUrl"]
+                parsed = self.parse_filename(name)
+                if parsed:
+                    writer.writerow([
+                        category,
+                        parsed.get("server", ""),
+                        parsed.get("application", ""),
+                        parsed.get("name", ""),
+                        parsed.get("version", ""),
+                        self.get_file_type(name),
+                        f"{config.site_url}{url}"
+                    ])
+        return response
+
     def parse_filename(self, filename):
-        pattern = r'^(?P<server>[A-Za-z0-9]+)-(?P<name>[A-Za-z_]+)-V(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
-        match = re.match(pattern, filename)
-        return match.groupdict() if match else None
+        # Supports both Server and Application naming conventions
+        # Server: FPS1434-PatchSchedule-V1.0.0.docx
+        # Application: AppName-FPS1434-FileName-V1.0.0.docx
+        pattern_server = r'^(?P<server>[A-Za-z0-9]+)-(?P<name>[A-Za-z_]+)-V(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
+        pattern_app = r'^(?P<application>[A-Za-z0-9]+)-(?P<server>[A-Za-z0-9]+)-(?P<name>[A-Za-z_]+)-V(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
+        match_app = re.match(pattern_app, filename)
+        match_server = re.match(pattern_server, filename)
+        if match_app:
+            return match_app.groupdict()
+        elif match_server:
+            return match_server.groupdict()
+        return None
 
     def get_file_type(self, filename):
         ext_map = {".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}
