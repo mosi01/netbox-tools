@@ -15,6 +15,12 @@
     <button type="submit">Sync from SharePoint</button>
 </form>
 
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="test">
+    <button type="submit">Run Test & Download CSV</button>
+</form>
+
 <h4>Cached Documents</h4>
 <table>
     <tr><th>Server</th><th>File Name</th><th>Version</th><th>Type</th><th>Category</th></tr>
