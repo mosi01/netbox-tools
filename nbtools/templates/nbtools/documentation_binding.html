@@ -1,1 +1,30 @@
+<h3>Documentation Binding Configuration</h3>
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_config">
+    <label>SharePoint URL:</label><input type="text" name="site_url" value="{{ config.site_url }}">
+    <label>Username:</label><input type="text" name="username" value="{{ config.username }}">
+    <label>Password:</label><input type="password" name="password" value="{{ config.password }}">
+    <label>Folder Mappings (JSON):</label><textarea name="folder_mappings">{{ config.folder_mappings }}</textarea>
+    <button type="submit">Save Configuration</button>
+</form>
 
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="sync">
+    <button type="submit">Sync from SharePoint</button>
+</form>
+
+<h4>Cached Documents</h4>
+<table>
+    <tr><th>Server</th><th>File Name</th><th>Version</th><th>Type</th><th>Category</th></tr>
+    {% for doc in docs %}
+        <tr>
+            <td>{{ doc.server_name }}</td>
+            <td><a href="{{ doc.sharepoint_url }}" target="_blank">{{ doc.file_name }}</a></td>
+            <td>{{ doc.version }}</td>
+            <td>{{ doc.file_type }}</td>
+            <td>{{ doc.category }}</td>
+        </tr>
+    {% endfor %}
+</table>
