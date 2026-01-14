@@ -63,6 +63,11 @@ menu = PluginMenu(
                     link_text='Documentation Reviewer',
                     auth_required=True,
                 ),
+                PluginMenuItem(
+                    link='plugins:nbtools:documentation_binding',
+                    link_text='Documentation Binding',
+                    auth_required=True,
+                ),
             ),
         ),
     ),
