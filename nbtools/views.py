@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.utils import timezone
 from django.views import View
 from datetime import date, timedelta
@@ -10,6 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from ipaddress import ip_network
 from ipam.models import Prefix, VRF, IPAddress
+
+from .models import SharePointConfig, DocumentationBinding
+
+from office365.sharepoint.client_context import ClientContext
+from office365.runtime.auth.user_credential import UserCredential
 
 
 from dcim.models import Device, DeviceRole, Site
@@ -34,6 +39,67 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
+
+class DocumentationBindingView(View):
+    template_name = "nbtools/documentation_binding.html"
+
+    def get(self, request):
+        config = SharePointConfig.objects.first()
+        docs = DocumentationBinding.objects.all().order_by('server_name')
+        return render(request, self.template_name, {"config": config, "docs": docs})
+
+    def post(self, request):
+        action = request.POST.get("action")
+        if action == "save_config":
+            site_url = request.POST.get("site_url")
+            username = request.POST.get("username")
+            password = request.POST.get("password")
+            folder_mappings = request.POST.get("folder_mappings")  # JSON string
+            SharePointConfig.objects.update_or_create(
+                id=1,
+                defaults={"site_url": site_url, "username": username, "password": password, "folder_mappings": folder_mappings}
+            )
+        elif action == "sync":
+            self.sync_sharepoint()
+        return redirect("plugins:nbtools:documentation_binding")
+
+    def sync_sharepoint(self):
+        config = SharePointConfig.objects.first()
+        if not config:
+            return
+        ctx = ClientContext(config.site_url).with_credentials(UserCredential(config.username, config.password))
+        for category, path in config.folder_mappings.items():
+            folder = ctx.web.get_folder_by_server_relative_url(path)
+            files = folder.files
+            ctx.load(files)
+            ctx.execute_query()
+            for file in files:
+                name = file.properties["Name"]
+                url = file.properties["ServerRelativeUrl"]
+                parsed = self.parse_filename(name)
+                if parsed:
+                    DocumentationBinding.objects.update_or_create(
+                        file_name=parsed["name"],
+                        server_name=parsed["server"],
+                        defaults={
+                            "category": category,
+                            "version": parsed["version"],
+                            "file_type": self.get_file_type(name),
+                            "sharepoint_url": f"{config.site_url}{url}"
+                        }
+                    )
+
+    def parse_filename(self, filename):
+        pattern = r'^(?P<server>[A-Za-z0-9]+)-(?P<name>[A-Za-z_]+)-V(?P<version>[0-9]+\.[0-9]+\.[0-9]+)'
+        match = re.match(pattern, filename)
+        return match.groupdict() if match else None
+
+    def get_file_type(self, filename):
+        ext_map = {".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}
+        for ext, label in ext_map.items():
+            if filename.endswith(ext):
+                return label
+        return "Unknown"
 
 
 method_decorator(csrf_exempt, name='dispatch')
