@@ -1,6 +1,5 @@
 from netbox.plugins import PluginConfig
 from django.db.models.signals import post_migrate
-from .template_extensions import template_extensions
 
 
 class NetboxToolsConfig(PluginConfig):
