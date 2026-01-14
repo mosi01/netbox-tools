@@ -1,11 +1,8 @@
 from django.db import migrations
-import datetime
 
-def create_and_backfill_fields(apps, schema_editor):
-    # Get models
+def create_custom_fields(apps, schema_editor):
     ContentType = apps.get_model("contenttypes", "ContentType")
     CustomField = apps.get_model("extras", "CustomField")
-    CustomFieldValue = apps.get_model("extras", "CustomFieldValue")
     Device = apps.get_model("dcim", "Device")
     VirtualMachine = apps.get_model("virtualization", "VirtualMachine")
 
@@ -18,7 +15,7 @@ def create_and_backfill_fields(apps, schema_editor):
         name="latest_update",
         defaults={
             "label": "Latest Update",
-            "type": "date",  # Use raw string if TYPE_DATE isn't available
+            "type": "date",
         }
     )
     cf_date.content_types.set([ct_device, ct_vm])
@@ -28,35 +25,13 @@ def create_and_backfill_fields(apps, schema_editor):
         name="reviewed",
         defaults={
             "label": "Reviewed",
-            "type": "boolean",  # Use raw string if TYPE_BOOLEAN isn't available
-            "default": "false"
+            "type": "boolean",
+            "default": False
         }
     )
     cf_bool.content_types.set([ct_device, ct_vm])
 
-    # Backfill values
-    cutoff_date = datetime.date(2025, 1, 1)
-    for model, ct in ((Device, ct_device), (VirtualMachine, ct_vm)):
-        for obj in model.objects.all():
-            obj_date = getattr(obj, "created", cutoff_date)
-            effective_date = max(obj_date.date(), cutoff_date)
-
-            CustomFieldValue.objects.update_or_create(
-                field=cf_date,
-                assigned_object_type=ct,
-                assigned_object_id=obj.pk,
-                defaults={"value": str(effective_date)}
-            )
-
-            CustomFieldValue.objects.update_or_create(
-                field=cf_bool,
-                assigned_object_type=ct,
-                assigned_object_id=obj.pk,
-                defaults={"value": "false"}
-            )
-
 class Migration(migrations.Migration):
-
     dependencies = [
         ("extras", "0002_squashed_0059"),
         ("contenttypes", "0001_initial"),
@@ -66,5 +41,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_and_backfill_fields, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(create_custom_fields, reverse_code=migrations.RunPython.noop),
     ]
