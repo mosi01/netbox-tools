@@ -27,4 +27,7 @@ urlpatterns = [
 
     # VM Tool
     path("vm-tool/", views.VMToolView.as_view(), name="vm_tool"),
+
+    # Documentation Binding
+    path("documentation-binding/", views.DocumentationBindingView.as_view(), name="documentation_binding"),
 ]
