@@ -14,9 +14,4 @@ class NetboxToolsConfig(PluginConfig):
     default_settings = {}
     top_level_menu = True
 
-
-    def ready(self):
-        from . import views
-
-
 config = NetboxToolsConfig
