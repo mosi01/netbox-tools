@@ -26,6 +26,7 @@ import time
 import re
 import csv
 import json
+import requests
 
 logger = logging.getLogger("nbtools")
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
