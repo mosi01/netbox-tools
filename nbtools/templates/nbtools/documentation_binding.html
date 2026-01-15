@@ -1,11 +1,12 @@
 {% extends 'base/layout.html' %}
 {% block header %}
-<h1>Documentation Binding Configuration</h1>
+<h1>Documentation Binding</h1>
 {% endblock header %}
+
 {% block content %}
 <div class="container">
 
-
+    <!-- Display Django messages -->
     {% if messages %}
         <div>
             {% for message in messages %}
@@ -14,37 +15,31 @@
         </div>
     {% endif %}
 
-    
     <!-- Configuration Form -->
     <form method="post" class="mb-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_config">
 
-        <!-- SharePoint Site URL -->
         <div class="mb-3">
             <label class="form-label">SharePoint Site URL:</label>
             <input type="text" name="site_url" class="form-control" value="{{ config.site_url }}">
         </div>
 
-        <!-- Application (Tenant) ID -->
         <div class="mb-3">
             <label class="form-label">Application (Tenant) ID:</label>
             <input type="text" name="application_id" class="form-control" value="{{ config.application_id }}">
         </div>
 
-        <!-- Client ID -->
         <div class="mb-3">
             <label class="form-label">Client ID:</label>
             <input type="text" name="client_id" class="form-control" value="{{ config.client_id }}">
         </div>
 
-        <!-- Client Secret -->
         <div class="mb-3">
             <label class="form-label">Client Secret:</label>
             <input type="password" name="client_secret" class="form-control" value="{{ config.client_secret }}">
         </div>
 
-        <!-- Folder Mappings -->
         <div class="mb-3">
             <label class="form-label">Folder Mappings (JSON):</label>
             <textarea name="folder_mappings" class="form-control">{{ config.folder_mappings }}</textarea>
