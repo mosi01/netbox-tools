@@ -90,104 +90,99 @@ class DocumentationBindingView(View):
 
         return redirect("plugins:nbtools:documentation_binding")
 
-    def sync_sharepoint(self):
-        config = SharePointConfig.objects.first()
-        if not config:
-            return {"status": "error", "error": "No configuration found."}
+    
+def sync_sharepoint(self):
+    config = SharePointConfig.objects.first()
+    if not config:
+        return {"status": "error", "error": "No configuration found."}
 
-        # Validate folder mappings
-        try:
-            folder_mappings = json.loads(config.folder_mappings)
-        except json.JSONDecodeError:
-            return {"status": "error", "error": "Invalid JSON in folder mappings."}
+    # Validate folder mappings
+    try:
+        folder_mappings = json.loads(config.folder_mappings)
+    except json.JSONDecodeError:
+        return {"status": "error", "error": "Invalid JSON in folder mappings."}
 
-        try:
-            # Step 1: Get OAuth token
-            token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
-            token_data = {
-                "grant_type": "client_credentials",
-                "client_id": config.client_id,
-                "client_secret": config.client_secret,
-                "scope": "https://graph.microsoft.com/.default"
-            }
-            token_response = requests.post(token_url, data=token_data)
-            if token_response.status_code != 200:
-                logger.error(f"Failed to get token: {token_response.text}")
-                return {"status": "error", "error": f"Token request failed: {token_response.text}"}
+    try:
+        # Step 1: Get OAuth token
+        token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
+        token_data = {
+            "grant_type": "client_credentials",
+            "client_id": config.client_id,
+            "client_secret": config.client_secret,
+            "scope": "https://graph.microsoft.com/.default"
+        }
+        token_response = requests.post(token_url, data=token_data)
+        if token_response.status_code != 200:
+            return {"status": "error", "error": f"Token request failed: {token_response.text}"}
 
-            access_token = token_response.json().get("access_token")
-            headers = {"Authorization": f"Bearer {access_token}"}
+        access_token = token_response.json().get("access_token")
+        headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Step 2: Get Site ID
-            hostname = config.site_url.replace("https://", "").split("/")[0]
-            path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
-            site_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
-            site_response = requests.get(site_url, headers=headers)
-            if site_response.status_code != 200:
-                logger.error(f"Failed to get site ID: {site_response.text}")
-                return {"status": "error", "error": f"Site lookup failed: {site_response.text}"}
+        # Step 2: Get Site ID
+        hostname = config.site_url.replace("https://", "").split("/")[0]
+        path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
+        site_lookup_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
+        site_response = requests.get(site_lookup_url, headers=headers)
+        if site_response.status_code != 200:
+            return {"status": "error", "error": f"Site lookup failed: {site_response.text}"}
 
-            site_id = site_response.json().get("id")
-            logger.info(f"Site ID: {site_id}")
+        site_id = site_response.json().get("id")
 
-            # Step 3: Get Drive ID for 'Documents'
-            drives_url = f"{GRAPH_BASE_URL}/sites/{site_id}/drives"
-            drives_response = requests.get(drives_url, headers=headers)
-            if drives_response.status_code != 200:
-                logger.error(f"Failed to get drives: {drives_response.text}")
-                return {"status": "error", "error": f"Drive lookup failed: {drives_response.text}"}
+        # Step 3: Get Drives
+        drives_url = f"{GRAPH_BASE_URL}/sites/{site_id}/drives"
+        drives_response = requests.get(drives_url, headers=headers)
+        if drives_response.status_code != 200:
+            return {"status": "error", "error": f"Drive lookup failed: {drives_response.text}"}
 
-            drives = drives_response.json().get("value", [])
-            documents_drive = next((d for d in drives if d["name"].lower() == "documents"), None)
-            if not documents_drive:
-                return {"status": "error", "error": "Documents library not found."}
+        drives = drives_response.json().get("value", [])
+        documents_drive = next((d for d in drives if d["name"].lower() in ["documents", "shared documents"]), None)
+        if not documents_drive:
+            return {"status": "error", "error": "Documents library not found."}
 
-            drive_id = documents_drive["id"]
-            logger.info(f"Drive ID: {drive_id}")
+        drive_id = documents_drive["id"]
+        total_files = 0
 
-            # Step 4: Iterate folder mappings and fetch files
-            total_files = 0
-            for category, path in folder_mappings.items():
-                logger.info(f"Fetching files from category '{category}' at path '{path}'...")
-                folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
-                folder_response = requests.get(folder_url, headers=headers)
+        # Step 4: Iterate folder mappings and fetch files recursively
+        for category, path in folder_mappings.items():
+            folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
+            folder_response = requests.get(folder_url, headers=headers)
+            if folder_response.status_code != 200:
+                continue
 
-                if folder_response.status_code != 200:
-                    logger.warning(f"Failed to fetch folder '{path}': {folder_response.text}")
-                    continue
+            items = folder_response.json().get("value", [])
+            for item in items:
+                if "folder" in item and item["name"].lower() in ["application", "server"]:
+                    subfolder_id = item["id"]
+                    subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
+                    subfolder_response = requests.get(subfolder_url, headers=headers)
+                    sub_items = subfolder_response.json().get("value", [])
 
-                items = folder_response.json().get("value", [])
-                if not items:
-                    logger.warning(f"No files found in folder: {path}")
-                    continue
-
-                for item in items:
-                    if "file" in item:  # Only process files, skip folders
-                        name = item.get("name")
-                        web_url = item.get("webUrl")
-                        parsed = self.parse_filename(name)
-                        if parsed:
+                    for sub_item in sub_items:
+                        if "file" in sub_item:
+                            gui_category = "Application" if item["name"].lower() == "application" else "Server"
+                            parsed = self.parse_filename(sub_item["name"])
                             DocumentationBinding.objects.update_or_create(
-                                file_name=parsed["name"],
+                                file_name=parsed.get("name", sub_item["name"]),
                                 server_name=parsed.get("server", ""),
                                 defaults={
-                                    "category": category,
-                                    "version": parsed["version"],
-                                    "file_type": self.get_file_type(name),
-                                    "sharepoint_url": web_url,
+                                    "category": gui_category,
+                                    "version": parsed.get("version", "Unknown"),
+                                    "file_type": self.get_file_type(sub_item["name"]),
+                                    "sharepoint_url": sub_item["webUrl"],
                                     "application_name": parsed.get("application", None)
                                 }
                             )
                             total_files += 1
 
-            if total_files == 0:
-                return {"status": "error", "error": "No documents found in any folder."}
+        if total_files == 0:
+            return {"status": "error", "error": "No documents found in any folder."}
 
-            return {"status": "success", "count": total_files}
+        return {"status": "success", "count": total_files}
 
-        except Exception as e:
-            logger.exception(f"Error during Graph API sync: {e}")
-            return {"status": "error", "error": str(e)}
+    except Exception as e:
+        logger.exception(f"Error during Graph API sync: {e}")
+        return {"status": "error", "error": str(e)}
+
 
     def test_sharepoint(self):
         return HttpResponse("Graph API test not implemented yet.", content_type="text/plain")
