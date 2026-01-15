@@ -17,6 +17,10 @@ class DocumentationBinding(models.Model):
     version = models.CharField(max_length=50)
     file_type = models.CharField(max_length=50)
     sharepoint_url = models.URLField()
+    application_id = models.CharField(max_length=255)
+    client_id = models.CharField(max_length=255)
+    client_secret = models.CharField(max_length=255)
+
 
     def __str__(self):
         return f"{self.server_name} - {self.file_name} ({self.version})"
