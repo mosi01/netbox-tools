@@ -18,3 +18,4 @@ class NetboxToolsConfig(PluginConfig):
 
 
 config = NetboxToolsConfig
+print("DEBUG: nbtools plugin loaded successfully")
