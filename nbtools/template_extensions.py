@@ -6,7 +6,7 @@ class VirtualMachineDocsExtension(PluginTemplateExtension):
     def right_page(self):
         from .models import DocumentationBinding  # Lazy import
         vm = self.context['object']
-        docs = DocumentationBinding.objects.filter(server_name=vm.name, category="Server")
+        docs = DocumentationBinding.objects.filter(server_name__iexact=vm.name, category="Server")
         return self.render('nbtools/Panels/vm_docs_box.html', extra_context={'docs': docs})
 
 class ApplicationDocsExtension(PluginTemplateExtension):
@@ -15,7 +15,7 @@ class ApplicationDocsExtension(PluginTemplateExtension):
     def right_page(self):
         from .models import DocumentationBinding  # Lazy import
         device = self.context['object']
-        docs = DocumentationBinding.objects.filter(application_name=device.name, category="Application")
+        docs = DocumentationBinding.objects.filter(application_name__iexact=device.name, category="Application")
         return self.render('nbtools/Panels/app_docs_box.html', extra_context={'docs': docs})
 
 template_extensions = [VirtualMachineDocsExtension, ApplicationDocsExtension]
