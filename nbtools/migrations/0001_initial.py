@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
                 ('file_name', models.CharField(max_length=255)),
                 ('version', models.CharField(max_length=50)),
                 ('file_type', models.CharField(max_length=50)),
-                ('sharepoint_url', models.URLField()),
+                ('sharepoint_url', models.TextField()),
             ],
         ),
     ]
