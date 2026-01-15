@@ -14,6 +14,7 @@ class NetboxToolsConfig(PluginConfig):
     required_settings = []
     default_settings = {}
     top_level_menu = True
+    template_extensions = template_extensions
 
 
 
