@@ -4,7 +4,7 @@ class VirtualMachineSidebarPanel(ObjectSidebarPanel):
     # Target model
     model = 'virtualization.virtualmachine'
     # Template to render
-    template = 'my_plugin/vm_sidebar_panel.html'
+    template = 'nbtool/vm_sidebar_panel.html'
     # Panel title
     label = 'Custom Info'
     # Optional: position in sidebar
