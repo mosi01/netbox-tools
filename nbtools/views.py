@@ -4,7 +4,6 @@ from django.views import View
 from datetime import date, timedelta
 from django.db import transaction
 from django.http import HttpResponse
-from netbox.ui.views import register_model_view, ViewTab
 
 
 from django.views.decorators.csrf import csrf_exempt
@@ -42,25 +41,6 @@ def dashboard(request):
 
 	return render(request, "nbtools/dashboard.html", context)
 
-
-
-@register_model_view(VirtualMachine, name="customtab")
-class VirtualMachineCustomTabView(View):
-    tab = ViewTab(
-        label="My Tab",
-        permission="virtualization.view_virtualmachine",
-    )
-
-    def get(self, request, pk):
-        vm = VirtualMachine.objects.get(pk=pk)
-        return render(
-            request,
-            "nbtools/vm_tab.html",
-            {
-                "object": vm,
-                "tab": self.tab,
-            },
-        )
 
 
 @method_decorator(csrf_exempt, name='dispatch')
