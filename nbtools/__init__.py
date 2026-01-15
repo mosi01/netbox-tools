@@ -14,6 +14,11 @@ class NetboxToolsConfig(PluginConfig):
     default_settings = {}
     top_level_menu = True
 
+
+    def ready(self):
+        import nbtools.views
+
+
 config = NetboxToolsConfig
 
 # ✅ Debug message to confirm plugin load
