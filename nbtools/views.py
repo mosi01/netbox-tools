@@ -43,12 +43,12 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
+
 @register_model_view(VirtualMachine, name="customtab")
 class VirtualMachineCustomTabView(View):
-    # Define the tab
     tab = ViewTab(
         label="My Tab",
-        permission="virtualization.view_virtualmachine",  # Required permission
+        permission="virtualization.view_virtualmachine",
     )
 
     def get(self, request, pk):
