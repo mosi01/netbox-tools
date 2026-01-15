@@ -51,8 +51,10 @@ class DocumentationBindingView(View):
         docs = DocumentationBinding.objects.all().order_by('server_name')
         return render(request, self.template_name, {"config": config, "docs": docs})
 
-    def post(self, request):
-        action = request.POST.get("action")
+
+def post(self, request):
+    action = request.POST.get("action")
+    try:
         if action == "save_config":
             site_url = request.POST.get("site_url")
             application_id = request.POST.get("application_id")
@@ -70,39 +72,57 @@ class DocumentationBindingView(View):
                     "folder_mappings": folder_mappings
                 }
             )
+            messages.success(request, "Configuration saved successfully.")
 
         elif action == "sync":
-            self.sync_sharepoint()
+            messages.info(request, "Contacting SharePoint...")
+            result = self.sync_sharepoint()
+            if result["status"] == "success":
+                messages.success(request, f"Sync complete. {result['count']} documents cached.")
+            else:
+                messages.error(request, f"Sync failed: {result['error']}")
 
         elif action == "test":
             return self.test_sharepoint()
 
-        return redirect("plugins:nbtools:documentation_binding")
+    except Exception as e:
+        logger.exception(f"Error in DocumentationBindingView POST: {e}")
+        messages.error(request, f"An error occurred: {e}")
 
-    def sync_sharepoint(self):
-        config = SharePointConfig.objects.first()
-        if not config:
-            return
+    return redirect("plugins:nbtools:documentation_binding")
 
-        try:
-            folder_mappings = json.loads(config.folder_mappings)
-        except json.JSONDecodeError:
-            folder_mappings = {}
 
-        # Authenticate using Entra ID App Registration
+    
+def sync_sharepoint(self):
+    config = SharePointConfig.objects.first()
+    if not config:
+        return {"status": "error", "error": "No configuration found."}
+
+    try:
+        folder_mappings = json.loads(config.folder_mappings)
+    except json.JSONDecodeError:
+        return {"status": "error", "error": "Invalid JSON in folder mappings."}
+
+    try:
         ctx = ClientContext(config.site_url).with_credentials(
             ClientCredential(config.client_id, config.client_secret)
         )
+        logger.info("Connected to SharePoint site.")
 
+        total_files = 0
         for category, path in folder_mappings.items():
+            logger.info(f"Fetching files from category '{category}' at path '{path}'...")
             folder = ctx.web.get_folder_by_server_relative_url(path)
             files = folder.files
             ctx.load(files)
             ctx.execute_query()
 
+            if not files:
+                logger.warning(f"No files found in folder: {path}")
+
             for file in files:
-                name = file.properties["Name"]
-                url = file.properties["ServerRelativeUrl"]
+                name = file.properties.get("Name")
+                url = file.properties.get("ServerRelativeUrl")
                 parsed = self.parse_filename(name)
                 if parsed:
                     DocumentationBinding.objects.update_or_create(
@@ -116,6 +136,17 @@ class DocumentationBindingView(View):
                             "application_name": parsed.get("application", None)
                         }
                     )
+                    total_files += 1
+
+        if total_files == 0:
+            return {"status": "error", "error": "No documents found in any folder."}
+
+        return {"status": "success", "count": total_files}
+
+    except Exception as e:
+        logger.exception(f"Error during SharePoint sync: {e}")
+        return {"status": "error", "error": str(e)}
+
 
     def test_sharepoint(self):
         config = SharePointConfig.objects.first()
