@@ -4,7 +4,7 @@ from django.views import View
 from datetime import date, timedelta
 from django.db import transaction
 from django.http import HttpResponse
-from netbox.views import register_model_view, ViewTab
+from netbox.ui.views import register_model_view, ViewTab
 
 
 from django.views.decorators.csrf import csrf_exempt
