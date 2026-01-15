@@ -14,8 +14,7 @@ from ipam.models import Prefix, VRF, IPAddress
 from .models import SharePointConfig, DocumentationBinding
 
 from office365.sharepoint.client_context import ClientContext
-from office365.runtime.auth.user_credential import UserCredential
-
+from office365.runtime.auth.client_credential import ClientCredential
 
 from dcim.models import Device, DeviceRole, Site
 from virtualization.models import VirtualMachine, Cluster, VMInterface
@@ -68,76 +67,85 @@ class DocumentationBindingView(View):
         return redirect("plugins:nbtools:documentation_binding")
 
     def sync_sharepoint(self):
-        config = SharePointConfig.objects.first()
-        if not config:
-            return
+    config = SharePointConfig.objects.first()
+    if not config:
+        return
 
-        # Parse folder mappings from JSON string
-        try:
-            folder_mappings = json.loads(config.folder_mappings)
-        except json.JSONDecodeError:
-            folder_mappings = {}
+    # Parse folder mappings from JSON string
+    try:
+        folder_mappings = json.loads(config.folder_mappings)
+    except json.JSONDecodeError:
+        folder_mappings = {}
 
-        ctx = ClientContext(config.site_url).with_credentials(UserCredential(config.username, config.password))
+    # Use Entra ID App Registration credentials
+    client_id = config.username      # Store App ID in username field
+    client_secret = config.password  # Store App Secret in password field
 
-        for category, path in folder_mappings.items():
-            folder = ctx.web.get_folder_by_server_relative_url(path)
-            files = folder.files
-            ctx.load(files)
-            ctx.execute_query()
-            for file in files:
-                name = file.properties["Name"]
-                url = file.properties["ServerRelativeUrl"]
-                parsed = self.parse_filename(name)
-                if parsed:
-                    DocumentationBinding.objects.update_or_create(
-                        file_name=parsed["name"],
-                        server_name=parsed.get("server", ""),
-                        defaults={
-                            "category": category,
-                            "version": parsed["version"],
-                            "file_type": self.get_file_type(name),
-                            "sharepoint_url": f"{config.site_url}{url}",
-                            "application_name": parsed.get("application", None)
-                        }
-                    )
+    ctx = ClientContext(config.site_url).with_credentials(ClientCredential(client_id, client_secret))
 
-    def test_sharepoint(self):
-        config = SharePointConfig.objects.first()
-        if not config:
-            return HttpResponse("No configuration found.", content_type="text/plain")
+    for category, path in folder_mappings.items():
+        folder = ctx.web.get_folder_by_server_relative_url(path)
+        files = folder.files
+        ctx.load(files)
+        ctx.execute_query()
+        for file in files:
+            name = file.properties["Name"]
+            url = file.properties["ServerRelativeUrl"]
+            parsed = self.parse_filename(name)
+            if parsed:
+                DocumentationBinding.objects.update_or_create(
+                    file_name=parsed["name"],
+                    server_name=parsed.get("server", ""),
+                    defaults={
+                        "category": category,
+                        "version": parsed["version"],
+                        "file_type": self.get_file_type(name),
+                        "sharepoint_url": f"{config.site_url}{url}",
+                        "application_name": parsed.get("application", None)
+                    }
+                )
 
-        try:
-            folder_mappings = json.loads(config.folder_mappings)
-        except json.JSONDecodeError:
-            folder_mappings = {}
+def test_sharepoint(self):
+    config = SharePointConfig.objects.first()
+    if not config:
+        return HttpResponse("No configuration found.", content_type="text/plain")
 
-        ctx = ClientContext(config.site_url).with_credentials(UserCredential(config.username, config.password))
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="sharepoint_test.csv"'
-        writer = csv.writer(response)
-        writer.writerow(["Category", "Server Name", "Application Name", "File Name", "Version", "File Type", "SharePoint URL"])
+    try:
+        folder_mappings = json.loads(config.folder_mappings)
+    except json.JSONDecodeError:
+        folder_mappings = {}
 
-        for category, path in folder_mappings.items():
-            folder = ctx.web.get_folder_by_server_relative_url(path)
-            files = folder.files
-            ctx.load(files)
-            ctx.execute_query()
-            for file in files:
-                name = file.properties["Name"]
-                url = file.properties["ServerRelativeUrl"]
-                parsed = self.parse_filename(name)
-                if parsed:
-                    writer.writerow([
-                        category,
-                        parsed.get("server", ""),
-                        parsed.get("application", ""),
-                        parsed.get("name", ""),
-                        parsed.get("version", ""),
-                        self.get_file_type(name),
-                        f"{config.site_url}{url}"
-                    ])
-        return response
+    # Use Entra ID App Registration credentials
+    client_id = config.username      # Store App ID in username field
+    client_secret = config.password  # Store App Secret in password field
+
+    ctx = ClientContext(config.site_url).with_credentials(ClientCredential(client_id, client_secret))
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="sharepoint_test.csv"'
+    writer = csv.writer(response)
+    writer.writerow(["Category", "Server Name", "Application Name", "File Name", "Version", "File Type", "SharePoint URL"])
+
+    for category, path in folder_mappings.items():
+        folder = ctx.web.get_folder_by_server_relative_url(path)
+        files = folder.files
+        ctx.load(files)
+        ctx.execute_query()
+        for file in files:
+            name = file.properties["Name"]
+            url = file.properties["ServerRelativeUrl"]
+            parsed = self.parse_filename(name)
+            if parsed:
+                writer.writerow([
+                    category,
+                    parsed.get("server", ""),
+                    parsed.get("application", ""),
+                    parsed.get("name", ""),
+                    parsed.get("version", ""),
+                    self.get_file_type(name),
+                    f"{config.site_url}{url}"
+                ])
+    return response
 
     def parse_filename(self, filename):
         # Supports both Server and Application naming conventions
