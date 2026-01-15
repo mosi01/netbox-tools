@@ -119,9 +119,9 @@ class DocumentationBindingView(View):
             headers = {"Authorization": f"Bearer {access_token}"}
 
             # Step 2: Get Site ID
-			hostname = config.site_url.replace("https://", "").split("/")[0]
-			path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
-			site_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
+            hostname = config.site_url.replace("https://", "").split("/")[0]
+            path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
+            site_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
             site_response = requests.get(site_url, headers=headers)
             if site_response.status_code != 200:
                 logger.error(f"Failed to get site ID: {site_response.text}")
