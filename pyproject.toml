@@ -18,7 +18,8 @@ dependencies = []
 Homepage = "https://github.com/mosi01/netbox-tools"
 
 [tool.setuptools.packages.find]
-where = ["nbtools"]
+where = ["."]
+include = ["nbtools"]
 
 [tool.setuptools.package-data]
 "nbtools" = ["templates/**/*", "static/**/*"]
