@@ -16,7 +16,7 @@ class NetboxToolsConfig(PluginConfig):
 
 
     def ready(self):
-        import nbtools.views
+        from . import views
 
 
 config = NetboxToolsConfig
