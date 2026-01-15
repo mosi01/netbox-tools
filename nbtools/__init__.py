@@ -20,6 +20,3 @@ class NetboxToolsConfig(PluginConfig):
 
 
 config = NetboxToolsConfig
-
-# ✅ Debug message to confirm plugin load
-print("DEBUG: nbtools plugin loaded successfully")
