@@ -16,7 +16,7 @@
     {% endif %}
 
     <!-- Configuration Form -->
-    <form method="post" class="mb-4">
+    <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_config">
 
@@ -49,14 +49,14 @@
     </form>
 
     <!-- Sync Button -->
-    <form method="post" class="mb-4">
+    <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="sync">
         <button type="submit" class="btn btn-success">Sync from SharePoint</button>
     </form>
 
     <!-- Test Button -->
-    <form method="post" class="mb-4">
+    <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="test">
         <button type="submit" class="btn btn-info">Run Test & Download CSV</button>
