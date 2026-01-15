@@ -1,21 +1,27 @@
+
 from netbox.plugins import PluginTemplateExtension
 
-class VirtualMachineDocsExtension(PluginTemplateExtension):
+class VirtualMachineDocsTab(PluginTemplateExtension):
     model = 'virtualization.virtualmachine'
+    tab = 'Documentation'  # This creates a new tab on the VM detail page
 
-    def right_page(self):
-        from .models import DocumentationBinding  # Lazy import
+    def render(self):
+        from .models import DocumentationBinding  # Lazy import to avoid AppRegistryNotReady
         vm = self.context['object']
         docs = DocumentationBinding.objects.filter(server_name__iexact=vm.name, category="Server")
-        return self.render('nbtools/Panels/vm_docs_box.html', extra_context={'docs': docs})
+        return self.render('nbtools/Tabs/vm_docs_box.html', extra_context={'docs': docs})
 
-class ApplicationDocsExtension(PluginTemplateExtension):
-    model = 'virtualization.virtualmachine'  # Or your custom Application model if you have one
 
-    def right_page(self):
-        from .models import DocumentationBinding  # Lazy import
+class ApplicationDocsTab(PluginTemplateExtension):
+    model = 'dcim.device'  # Or your custom Application model if you have one
+    tab = 'Documentation'  # Creates a new tab on the Device/Application detail page
+
+    def render(self):
+        from .models import DocumentationBinding
         device = self.context['object']
         docs = DocumentationBinding.objects.filter(application_name__iexact=device.name, category="Application")
-        return self.render('nbtools/Panels/app_docs_box.html', extra_context={'docs': docs})
+        return self.render('nbtools/Tabs/app_docs_box.html', extra_context={'docs': docs})
 
-template_extensions = [VirtualMachineDocsExtension, ApplicationDocsExtension]
+
+# Register both template extensions
+template_extensions = [VirtualMachineDocsTab, ApplicationDocsTab]
