@@ -22,4 +22,4 @@ where = ["."]
 include = ["nbtools"]
 
 [tool.setuptools.package-data]
-"nbtools" = ["templates/**/*", "static/**/*"]
+"nbtools" = ["*"]
