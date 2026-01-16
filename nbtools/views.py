@@ -41,13 +41,20 @@ def dashboard(request):
 
 	return render(request, "nbtools/dashboard.html", context)
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
 
     def get(self, request):
         config = SharePointConfig.objects.first()
-        docs = DocumentationBinding.objects.all().order_by('server_name')
+        docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
+
+        # Add exists flag for each document
+        for doc in docs:
+            exists = Device.objects.filter(name=doc.server_name).exists() or VirtualMachine.objects.filter(name=doc.server_name).exists()
+            doc.exists_flag = exists
+
         return render(request, self.template_name, {"config": config, "docs": docs})
 
     def post(self, request):
@@ -55,10 +62,11 @@ class DocumentationBindingView(View):
         try:
             if action == "save_config":
                 site_url = request.POST.get("site_url")
-                application_id = request.POST.get("application_id")  # Tenant ID
-                client_id = request.POST.get("client_id")  # App (Client) ID
+                application_id = request.POST.get("application_id")
+                client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
                 folder_mappings = request.POST.get("folder_mappings")  # JSON string
+                file_type_mappings = request.POST.get("file_type_mappings")  # JSON string
 
                 SharePointConfig.objects.update_or_create(
                     id=1,
@@ -67,21 +75,19 @@ class DocumentationBindingView(View):
                         "application_id": application_id,
                         "client_id": client_id,
                         "client_secret": client_secret,
-                        "folder_mappings": folder_mappings
+                        "folder_mappings": folder_mappings,
+                        "file_type_mappings": file_type_mappings
                     }
                 )
                 messages.success(request, "Configuration saved successfully.")
 
             elif action == "sync":
-                messages.info(request, "Contacting Microsoft Graph API...")
+                messages.info(request, "Syncing with SharePoint...")
                 result = self.sync_sharepoint()
                 if result["status"] == "success":
                     messages.success(request, f"Sync complete. {result['count']} documents cached.")
                 else:
                     messages.error(request, f"Sync failed: {result['error']}")
-
-            elif action == "test":
-                return HttpResponse("Graph API test not implemented yet.", content_type="text/plain")
 
         except Exception as e:
             logger.exception(f"Error in DocumentationBindingView POST: {e}")
@@ -94,16 +100,16 @@ class DocumentationBindingView(View):
         if not config:
             return {"status": "error", "error": "No configuration found."}
 
-        # ✅ Clear cached documents before syncing
-        DocumentationBinding.objects.all().delete()
+        DocumentationBinding.objects.all().delete()  # Clear cache
 
         try:
             folder_mappings = json.loads(config.folder_mappings)
+            file_type_mappings = json.loads(getattr(config, "file_type_mappings", "{}"))
         except json.JSONDecodeError:
-            return {"status": "error", "error": "Invalid JSON in folder mappings."}
+            return {"status": "error", "error": "Invalid JSON in mappings."}
 
         try:
-            # Step 1: Get OAuth token
+            # OAuth token
             token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
             token_data = {
                 "grant_type": "client_credentials",
@@ -118,7 +124,7 @@ class DocumentationBindingView(View):
             access_token = token_response.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Step 2: Get Site ID
+            # Site ID
             hostname = config.site_url.replace("https://", "").split("/")[0]
             path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
             site_lookup_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
@@ -128,7 +134,7 @@ class DocumentationBindingView(View):
 
             site_id = site_response.json().get("id")
 
-            # Step 3: Get Drives
+            # Drives
             drives_url = f"{GRAPH_BASE_URL}/sites/{site_id}/drives"
             drives_response = requests.get(drives_url, headers=headers)
             if drives_response.status_code != 200:
@@ -142,8 +148,8 @@ class DocumentationBindingView(View):
             drive_id = documents_drive["id"]
             total_files = 0
 
-            # Step 4: Iterate folder mappings and fetch files recursively
-            for category, path in folder_mappings.items():
+            # Fetch files by folder mappings
+            for category_key, path in folder_mappings.items():
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
                 if folder_response.status_code != 200:
@@ -151,31 +157,24 @@ class DocumentationBindingView(View):
 
                 items = folder_response.json().get("value", [])
                 for item in items:
-                    if "folder" in item and item["name"].lower() in ["application", "server"]:
-                        subfolder_id = item["id"]
-                        subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
-                        subfolder_response = requests.get(subfolder_url, headers=headers)
-                        sub_items = subfolder_response.json().get("value", [])
-
-                        for sub_item in sub_items:
-                            if "file" in sub_item:
-                                gui_category = "Application" if item["name"].lower() == "application" else "Server"
-                                parsed = self.parse_filename(sub_item["name"])
-                                DocumentationBinding.objects.update_or_create(
-                                    file_name=parsed.get("name", sub_item["name"]),
-                                    server_name=parsed.get("server", ""),
-                                    defaults={
-                                        "category": gui_category,
-                                        "version": parsed.get("version", "Unknown"),
-                                        "file_type": self.get_file_type(sub_item["name"]),
-                                        "sharepoint_url": sub_item["webUrl"],
-                                        "application_name": parsed.get("application", None)
-                                    }
-                                )
-                                total_files += 1
+                    if "file" in item:
+                        parsed = self.parse_filename(item["name"])
+                        file_type = self.get_file_type(item["name"], file_type_mappings)
+                        DocumentationBinding.objects.update_or_create(
+                            file_name=parsed.get("name", item["name"]),
+                            server_name=parsed.get("server", ""),
+                            defaults={
+                                "category": category_key,  # ✅ Use JSON key as category
+                                "version": parsed.get("version", "Unknown"),
+                                "file_type": file_type,
+                                "sharepoint_url": item["webUrl"],
+                                "application_name": parsed.get("application", None)
+                            }
+                        )
+                        total_files += 1
 
             if total_files == 0:
-                return {"status": "error", "error": "No documents found in any folder."}
+                return {"status": "error", "error": "No documents found."}
 
             return {"status": "success", "count": total_files}
 
@@ -194,9 +193,8 @@ class DocumentationBindingView(View):
             return match_server.groupdict()
         return {}
 
-    def get_file_type(self, filename):
-        ext_map = {".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}
-        for ext, label in ext_map.items():
+    def get_file_type(self, filename, file_type_mappings):
+        for ext, label in file_type_mappings.items():
             if filename.endswith(ext):
                 return label
         return "Unknown"
