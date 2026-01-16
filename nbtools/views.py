@@ -112,10 +112,10 @@ class DocumentationBindingView(View):
         DocumentationBinding.objects.all().delete()  # Clear cache
 
         try:
-            folder_mappings = json.loads(config.folder_mappings)
+            folder_mappings = config.folder_mappings  # ✅ FIX: Already a dict
             file_type_mappings = json.loads(getattr(config, "file_type_mappings", "{}"))
-        except json.JSONDecodeError:
-            return {"status": "error", "error": "Invalid JSON in mappings."}
+        except Exception:
+            return {"status": "error", "error": "Invalid mappings."}
 
         try:
             # OAuth token
@@ -207,6 +207,7 @@ class DocumentationBindingView(View):
             if filename.endswith(ext):
                 return label
         return "Unknown"
+
 
 method_decorator(csrf_exempt, name='dispatch')
 class IPPrefixCheckerView(View):
