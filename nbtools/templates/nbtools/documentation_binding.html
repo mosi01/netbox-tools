@@ -50,11 +50,10 @@
         </div>
 
         <!-- File Type Mappings -->
-        
         <div class="mb-3">
             <label class="form-label">File Type Mappings (JSON):</label>
             <textarea name="file_type_mappings" class="form-control" rows="4">
-                {{ config.file_type_mappings|default:'{".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}' }}
+                {{ config.file_type_mappings|default:"{\".docx\": \"Word Document\", \".vsdx\": \"Visio Drawing\", \".xlsx\": \"Excel Spreadsheet\"}" }}
             </textarea>
         </div>
 
@@ -97,7 +96,7 @@
                         <td><a href="{{ doc.sharepoint_url }}" target="_blank">{{ doc.file_name }}</a></td>
                         <td>{{ doc.version }}</td>
                         <td>{{ doc.file_type }}</td>
-                        <td>{{ doc.application_name|default:"Empty" }}</td>
+                        <td>{{ doc.application_name|default:"Server" }}</td>
                         <td>{{ doc.category }}</td>
                         <td>{{ doc.exists_flag|yesno:"True,False" }}</td>
                     </tr>
