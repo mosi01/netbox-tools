@@ -42,8 +42,6 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
@@ -57,12 +55,19 @@ class DocumentationBindingView(View):
                 ".xlsx": "Excel Spreadsheet"
             }
 
+        # Convert file_type_mappings to JSON for proper display
+        file_type_mappings_json = json.dumps(config.file_type_mappings, indent=4) if config else "{}"
+
         docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
         for doc in docs:
             exists = Device.objects.filter(name=doc.server_name).exists() or VirtualMachine.objects.filter(name=doc.server_name).exists()
             doc.exists_flag = exists
 
-        return render(request, self.template_name, {"config": config, "docs": docs})
+        return render(request, self.template_name, {
+            "config": config,
+            "docs": docs,
+            "file_type_mappings_json": file_type_mappings_json
+        })
 
     def post(self, request):
         action = request.POST.get("action")
@@ -121,9 +126,8 @@ class DocumentationBindingView(View):
             return {"status": "error", "error": "No configuration found."}
 
         DocumentationBinding.objects.all().delete()
-
         folder_mappings = config.folder_mappings
-        file_type_mappings = config.file_type_mappings  # ✅ Use dict directly
+        file_type_mappings = config.file_type_mappings
 
         try:
             token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
@@ -148,7 +152,6 @@ class DocumentationBindingView(View):
                 return {"status": "error", "error": f"Site lookup failed: {site_response.text}"}
 
             site_id = site_response.json().get("id")
-
             drives_url = f"{GRAPH_BASE_URL}/sites/{site_id}/drives"
             drives_response = requests.get(drives_url, headers=headers)
             if drives_response.status_code != 200:
@@ -166,7 +169,6 @@ class DocumentationBindingView(View):
             for category_key, path in folder_mappings.items():
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
-
                 found_folders = []
                 found_files = []
 
@@ -188,7 +190,6 @@ class DocumentationBindingView(View):
                         subfolder_id = item["id"]
                         subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
                         subfolder_response = requests.get(subfolder_url, headers=headers)
-
                         if subfolder_response.status_code != 200:
                             error_msg = f"Failed to fetch subfolder '{item['name']}' under '{path}'. Status: {subfolder_response.status_code}. URL: {subfolder_url}"
                             path_results.append({"path": path, "status": "error", "message": error_msg})
