@@ -42,6 +42,7 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
@@ -55,9 +56,6 @@ class DocumentationBindingView(View):
                 ".xlsx": "Excel Spreadsheet"
             }
 
-        # Convert file_type_mappings to JSON for proper display
-        file_type_mappings_json = json.dumps(config.file_type_mappings, indent=4) if config else "{}"
-
         docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
         for doc in docs:
             exists = Device.objects.filter(name=doc.server_name).exists() or VirtualMachine.objects.filter(name=doc.server_name).exists()
@@ -65,8 +63,7 @@ class DocumentationBindingView(View):
 
         return render(request, self.template_name, {
             "config": config,
-            "docs": docs,
-            "file_type_mappings_json": file_type_mappings_json
+            "docs": docs
         })
 
     def post(self, request):
@@ -83,13 +80,10 @@ class DocumentationBindingView(View):
                 folder_values = request.POST.getlist("folder_values[]")
                 folder_mappings = {k.strip(): v.strip().rstrip("/") for k, v in zip(folder_keys, folder_values) if k and v}
 
-                # File type mappings
-                file_type_mappings_raw = request.POST.get("file_type_mappings", "{}").strip()
-                try:
-                    file_type_mappings = json.loads(file_type_mappings_raw)
-                except json.JSONDecodeError:
-                    messages.error(request, "Invalid JSON in File Type Mappings.")
-                    return redirect("plugins:nbtools:documentation_binding")
+                # File type mappings handled like folder mappings
+                file_type_keys = request.POST.getlist("file_type_keys[]")
+                file_type_values = request.POST.getlist("file_type_values[]")
+                file_type_mappings = {k.strip(): v.strip() for k, v in zip(file_type_keys, file_type_values) if k and v}
 
                 SharePointConfig.objects.update_or_create(
                     id=1,
