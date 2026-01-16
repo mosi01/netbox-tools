@@ -5,6 +5,8 @@ class NetboxToolsConfig(PluginConfig):
     verbose_name = "NetBox Tools"
     description = "Collection of tools for NetBox"
     version = "1.0.0"
+    min_version = "4.5.0"
+    max_version = "4.5.99"
     author = "Simon Möller Ahlquist"
     author_email = "simon.moller@lindab.com"
     license = "MIT"
