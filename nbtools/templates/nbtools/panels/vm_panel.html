@@ -7,10 +7,8 @@
 
     <div class="card-body p-0">
         {% for category, docs in grouped_docs.items %}
-            <!-- Category Header -->
-            <div class="card-header bg-light border-bottom">
-                <h6 class="card-title mb-0">{{ category }}</h6>
-            </div>
+            <!-- Category Heading styled like NetBox -->
+            <h6 class="border-bottom text-muted py-2 px-3 mb-0">{{ category }}</h6>
 
             <!-- Table -->
             <div class="table-responsive">
