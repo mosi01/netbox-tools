@@ -50,9 +50,12 @@
         </div>
 
         <!-- File Type Mappings -->
+        
         <div class="mb-3">
             <label class="form-label">File Type Mappings (JSON):</label>
-            <textarea name="file_type_mappings" class="form-control" rows="4">{{ config.file_type_mappings|default:'{".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}' }}</textarea>
+            <textarea name="file_type_mappings" class="form-control" rows="4">
+                {{ config.file_type_mappings|default:'{".docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}' }}
+            </textarea>
         </div>
 
         <button type="submit" class="btn btn-primary">Save Configuration</button>
