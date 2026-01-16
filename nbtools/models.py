@@ -6,6 +6,7 @@ class SharePointConfig(models.Model):
     client_id = models.CharField(max_length=255)
     client_secret = models.CharField(max_length=255)
     folder_mappings = models.JSONField(default=dict)
+    file_type_mappings = models.JSONField(default=dict)
 
     def __str__(self):
         return f"SharePoint Config for {self.site_url}"
