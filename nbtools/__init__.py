@@ -1,5 +1,4 @@
 from netbox.plugins import PluginConfig
-from .template_extensions import template_extensions
 
 class NetboxToolsConfig(PluginConfig):
     name = "nbtools"
