@@ -41,8 +41,6 @@ def dashboard(request):
 
 	return render(request, "nbtools/dashboard.html", context)
 
-
-
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
@@ -95,6 +93,9 @@ class DocumentationBindingView(View):
         config = SharePointConfig.objects.first()
         if not config:
             return {"status": "error", "error": "No configuration found."}
+
+        # ✅ Clear cached documents before syncing
+        DocumentationBinding.objects.all().delete()
 
         try:
             folder_mappings = json.loads(config.folder_mappings)
