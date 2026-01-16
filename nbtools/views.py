@@ -42,7 +42,6 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
@@ -163,6 +162,7 @@ class DocumentationBindingView(View):
 
             drive_id = documents_drive["id"]
             total_files = 0
+            path_results = []  # Collect info per path
 
             # Fetch files by folder mappings
             for category_key, path in folder_mappings.items():
@@ -170,29 +170,35 @@ class DocumentationBindingView(View):
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
 
-                # Error handling for folder fetch
                 if folder_response.status_code != 200:
-                    logger.error(f"Failed to fetch folder: {path}, Status: {folder_response.status_code}, URL: {folder_url}")
+                    error_msg = f"Failed to fetch folder '{path}'. Status: {folder_response.status_code}. URL: {folder_url}"
+                    logger.error(error_msg)
+                    path_results.append({"path": path, "status": "error", "message": error_msg})
                     continue
 
                 items = folder_response.json().get("value", [])
                 if not items:
-                    logger.warning(f"No items found in folder: {path}, URL: {folder_url}")
+                    warning_msg = f"No items found in folder '{path}'. URL: {folder_url}. Possible reasons: folder empty or incorrect path."
+                    logger.warning(warning_msg)
+                    path_results.append({"path": path, "status": "warning", "message": warning_msg})
+                    continue
 
+                files_found = 0
                 for item in items:
                     if "folder" in item and item["name"].lower() in ["application", "server"]:
                         subfolder_id = item["id"]
                         subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
                         subfolder_response = requests.get(subfolder_url, headers=headers)
 
-                        # Error handling for subfolder fetch
                         if subfolder_response.status_code != 200:
-                            logger.error(f"Failed to fetch subfolder: {item['name']} in {path}, Status: {subfolder_response.status_code}, URL: {subfolder_url}")
+                            error_msg = f"Failed to fetch subfolder '{item['name']}' under '{path}'. Status: {subfolder_response.status_code}. URL: {subfolder_url}"
+                            logger.error(error_msg)
                             continue
 
                         sub_items = subfolder_response.json().get("value", [])
                         if not sub_items:
-                            logger.warning(f"No files found in subfolder: {item['name']} under {path}")
+                            logger.warning(f"No files found in subfolder '{item['name']}' under '{path}'. URL: {subfolder_url}")
+                            continue
 
                         for sub_item in sub_items:
                             if "file" in sub_item:
@@ -202,7 +208,7 @@ class DocumentationBindingView(View):
                                     file_name=parsed.get("name", sub_item["name"]),
                                     server_name=parsed.get("server", ""),
                                     defaults={
-                                        "category": category_key,  # JSON key
+                                        "category": category_key,
                                         "version": parsed.get("version", "Unknown"),
                                         "file_type": file_type,
                                         "sharepoint_url": sub_item["webUrl"],
@@ -210,11 +216,17 @@ class DocumentationBindingView(View):
                                     }
                                 )
                                 total_files += 1
+                                files_found += 1
+
+                if files_found > 0:
+                    path_results.append({"path": path, "status": "success", "message": f"Fetched {files_found} files from '{path}'."})
+                else:
+                    path_results.append({"path": path, "status": "warning", "message": f"No files found in '{path}' despite valid subfolders."})
 
             if total_files == 0:
-                return {"status": "error", "error": "No documents found in any mapped folders."}
+                return {"status": "error", "error": f"No documents found. Details: {path_results}"}
 
-            return {"status": "success", "count": total_files}
+            return {"status": "success", "count": total_files, "details": path_results}
 
         except Exception as e:
             logger.exception(f"Error during Graph API sync: {e}")
@@ -237,7 +249,6 @@ class DocumentationBindingView(View):
             if filename.endswith(ext.lower()):
                 return label
         return "Unknown"
-
 
 
 method_decorator(csrf_exempt, name='dispatch')
