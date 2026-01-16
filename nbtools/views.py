@@ -48,6 +48,10 @@ class DocumentationBindingView(View):
 
     def get(self, request):
         config = SharePointConfig.objects.first()
+        # Ensure defaults for file_type_mappings so template doesn't break
+        if config and not getattr(config, "file_type_mappings", None):
+            config.file_type_mappings = '{" .docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}'
+
         docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
 
         # Add exists flag for each document
@@ -65,8 +69,13 @@ class DocumentationBindingView(View):
                 application_id = request.POST.get("application_id")
                 client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
-                folder_mappings = request.POST.get("folder_mappings")  # JSON string
-                file_type_mappings = request.POST.get("file_type_mappings")  # JSON string
+
+                # Build folder mappings from dynamic fields
+                folder_keys = request.POST.getlist("folder_keys[]")
+                folder_values = request.POST.getlist("folder_values[]")
+                folder_mappings = {k: v for k, v in zip(folder_keys, folder_values) if k and v}
+
+                file_type_mappings = request.POST.get("file_type_mappings")
 
                 SharePointConfig.objects.update_or_create(
                     id=1,
@@ -164,11 +173,11 @@ class DocumentationBindingView(View):
                             file_name=parsed.get("name", item["name"]),
                             server_name=parsed.get("server", ""),
                             defaults={
-                                "category": category_key,  # ✅ Use JSON key as category
+                                "category": category_key,  # JSON key
                                 "version": parsed.get("version", "Unknown"),
                                 "file_type": file_type,
                                 "sharepoint_url": item["webUrl"],
-                                "application_name": parsed.get("application", None)
+                                "application_name": parsed.get("application", None) or "Server"
                             }
                         )
                         total_files += 1
