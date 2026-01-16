@@ -1,36 +1,33 @@
 {% if grouped_docs %}
-<div class="panel panel-default">
-    <!-- Main Panel Heading -->
-    <div class="panel-heading">
-        <h4 class="panel-title">
-            <strong>Assigned Documentation</strong>
-        </h4>
+<div class="card">
+    <!-- Main Card Header -->
+    <div class="card-header">
+        <h5 class="card-title mb-0">Assigned Documentation</h5>
     </div>
 
-    <div class="panel-body" style="max-height: 300px; overflow-y: auto;">
+    <div class="card-body p-0">
         {% for category, docs in grouped_docs.items %}
-            <!-- Category Heading styled like NetBox -->
-            <div class="panel-heading" style="padding: 8px 0; border-bottom: 1px solid #ddd; margin-bottom: 8px;">
-                <h5 class="panel-title" style="margin: 0;">
-                    <strong>{{ category }}</strong>
-                </h5>
+            <!-- Category Header -->
+            <div class="card-header bg-light border-bottom">
+                <h6 class="card-title mb-0">{{ category }}</h6>
             </div>
 
             <!-- Table -->
-            <table class="table table-hover table-striped">
-                <thead>
-                    <tr>
-                        <th>Filename (Version)</th>
-                        <th>File Type</th>
-                        <th>Type</th>
-                        <th>Category</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for doc in docs %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Filename (Version)</th>
+                            <th>File Type</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in docs %}
                         <tr>
                             <td>
-                                <a href="{{ doc.sharepoint_url }}" target="_blank">
+                                <a href="{{ doc.sharepoint_url }}" target="_blank" class="text-success">
                                     {{ doc.file_name }} ({{ doc.version }})
                                 </a>
                             </td>
@@ -38,9 +35,10 @@
                             <td>{{ doc.category }}</td>
                             <td>{{ category }}</td>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         {% endfor %}
     </div>
 </div>
