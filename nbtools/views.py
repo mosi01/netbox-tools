@@ -42,6 +42,7 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
@@ -73,7 +74,7 @@ class DocumentationBindingView(View):
                 # Build folder mappings from dynamic fields
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
-                folder_mappings = {k.strip(): v.strip() for k, v in zip(folder_keys, folder_values) if k and v}
+                folder_mappings = {k.strip(): v.strip().rstrip("/") for k, v in zip(folder_keys, folder_values) if k and v}
 
                 # Validate file type mappings
                 file_type_mappings_raw = request.POST.get("file_type_mappings", "{}").strip()
@@ -168,16 +169,30 @@ class DocumentationBindingView(View):
                 path = path.rstrip("/")  # Remove trailing slash
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
+
+                # Error handling for folder fetch
                 if folder_response.status_code != 200:
+                    logger.error(f"Failed to fetch folder: {path}, Status: {folder_response.status_code}, URL: {folder_url}")
                     continue
 
                 items = folder_response.json().get("value", [])
+                if not items:
+                    logger.warning(f"No items found in folder: {path}, URL: {folder_url}")
+
                 for item in items:
                     if "folder" in item and item["name"].lower() in ["application", "server"]:
                         subfolder_id = item["id"]
                         subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
                         subfolder_response = requests.get(subfolder_url, headers=headers)
+
+                        # Error handling for subfolder fetch
+                        if subfolder_response.status_code != 200:
+                            logger.error(f"Failed to fetch subfolder: {item['name']} in {path}, Status: {subfolder_response.status_code}, URL: {subfolder_url}")
+                            continue
+
                         sub_items = subfolder_response.json().get("value", [])
+                        if not sub_items:
+                            logger.warning(f"No files found in subfolder: {item['name']} under {path}")
 
                         for sub_item in sub_items:
                             if "file" in sub_item:
@@ -197,7 +212,7 @@ class DocumentationBindingView(View):
                                 total_files += 1
 
             if total_files == 0:
-                return {"status": "error", "error": "No documents found."}
+                return {"status": "error", "error": "No documents found in any mapped folders."}
 
             return {"status": "success", "count": total_files}
 
