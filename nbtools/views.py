@@ -159,6 +159,7 @@ class DocumentationBindingView(View):
 
             # Fetch files by folder mappings
             for category_key, path in folder_mappings.items():
+                path = path.rstrip("/")  # Remove trailing slash
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
                 if folder_response.status_code != 200:
@@ -166,21 +167,28 @@ class DocumentationBindingView(View):
 
                 items = folder_response.json().get("value", [])
                 for item in items:
-                    if "file" in item:
-                        parsed = self.parse_filename(item["name"])
-                        file_type = self.get_file_type(item["name"], file_type_mappings)
-                        DocumentationBinding.objects.update_or_create(
-                            file_name=parsed.get("name", item["name"]),
-                            server_name=parsed.get("server", ""),
-                            defaults={
-                                "category": category_key,  # JSON key
-                                "version": parsed.get("version", "Unknown"),
-                                "file_type": file_type,
-                                "sharepoint_url": item["webUrl"],
-                                "application_name": parsed.get("application", None) or "Server"
-                            }
-                        )
-                        total_files += 1
+                    if "folder" in item and item["name"].lower() in ["application", "server"]:
+                        subfolder_id = item["id"]
+                        subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
+                        subfolder_response = requests.get(subfolder_url, headers=headers)
+                        sub_items = subfolder_response.json().get("value", [])
+
+                        for sub_item in sub_items:
+                            if "file" in sub_item:
+                                parsed = self.parse_filename(sub_item["name"])
+                                file_type = self.get_file_type(sub_item["name"], file_type_mappings)
+                                DocumentationBinding.objects.update_or_create(
+                                    file_name=parsed.get("name", sub_item["name"]),
+                                    server_name=parsed.get("server", ""),
+                                    defaults={
+                                        "category": category_key,  # JSON key
+                                        "version": parsed.get("version", "Unknown"),
+                                        "file_type": file_type,
+                                        "sharepoint_url": sub_item["webUrl"],
+                                        "application_name": parsed.get("application", None) or item["name"].capitalize()
+                                    }
+                                )
+                                total_files += 1
 
             if total_files == 0:
                 return {"status": "error", "error": "No documents found."}
