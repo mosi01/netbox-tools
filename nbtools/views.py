@@ -42,19 +42,18 @@ def dashboard(request):
 	return render(request, "nbtools/dashboard.html", context)
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
 
     def get(self, request):
         config = SharePointConfig.objects.first()
-        # Ensure defaults for file_type_mappings so template doesn't break
         if config and not getattr(config, "file_type_mappings", None):
             config.file_type_mappings = '{" .docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}'
 
         docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
 
-        # Add exists flag for each document
         for doc in docs:
             exists = Device.objects.filter(name=doc.server_name).exists() or VirtualMachine.objects.filter(name=doc.server_name).exists()
             doc.exists_flag = exists
@@ -70,15 +69,13 @@ class DocumentationBindingView(View):
                 client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
 
-                # Build folder mappings from dynamic fields
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
                 folder_mappings = {k.strip(): v.strip().rstrip("/") for k, v in zip(folder_keys, folder_values) if k and v}
 
-                # Validate file type mappings
                 file_type_mappings_raw = request.POST.get("file_type_mappings", "{}").strip()
                 try:
-                    json.loads(file_type_mappings_raw)  # Validate JSON
+                    json.loads(file_type_mappings_raw)
                 except json.JSONDecodeError:
                     messages.error(request, "Invalid JSON in File Type Mappings.")
                     return redirect("plugins:nbtools:documentation_binding")
@@ -100,9 +97,11 @@ class DocumentationBindingView(View):
                 messages.info(request, "Syncing with SharePoint...")
                 result = self.sync_sharepoint()
                 if result["status"] == "success":
-                    messages.success(request, f"Sync complete. {result['count']} documents cached.")
+                    details = "\n".join([f"{r['status'].upper()}: {r['path']} - {r['message']}" for r in result["details"]])
+                    messages.success(request, f"Sync complete. {result['count']} documents cached.\nDetails:\n{details}")
                 else:
-                    messages.error(request, f"Sync failed: {result['error']}")
+                    details = "\n".join([f"{r['status'].upper()}: {r['path']} - {r['message']}" for r in result.get("details", [])])
+                    messages.error(request, f"Sync failed: {result['error']}\nDetails:\n{details}")
 
         except Exception as e:
             logger.exception(f"Error in DocumentationBindingView POST: {e}")
@@ -115,16 +114,15 @@ class DocumentationBindingView(View):
         if not config:
             return {"status": "error", "error": "No configuration found."}
 
-        DocumentationBinding.objects.all().delete()  # Clear cache
+        DocumentationBinding.objects.all().delete()
 
         try:
-            folder_mappings = config.folder_mappings  # Already a dict
+            folder_mappings = config.folder_mappings
             file_type_mappings = json.loads(getattr(config, "file_type_mappings", "{}"))
         except Exception:
             return {"status": "error", "error": "Invalid mappings."}
 
         try:
-            # OAuth token
             token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
             token_data = {
                 "grant_type": "client_credentials",
@@ -139,7 +137,6 @@ class DocumentationBindingView(View):
             access_token = token_response.json().get("access_token")
             headers = {"Authorization": f"Bearer {access_token}"}
 
-            # Site ID
             hostname = config.site_url.replace("https://", "").split("/")[0]
             path = "/" + "/".join(config.site_url.replace("https://", "").split("/")[1:])
             site_lookup_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
@@ -149,7 +146,6 @@ class DocumentationBindingView(View):
 
             site_id = site_response.json().get("id")
 
-            # Drives
             drives_url = f"{GRAPH_BASE_URL}/sites/{site_id}/drives"
             drives_response = requests.get(drives_url, headers=headers)
             if drives_response.status_code != 200:
@@ -162,46 +158,46 @@ class DocumentationBindingView(View):
 
             drive_id = documents_drive["id"]
             total_files = 0
-            path_results = []  # Collect info per path
+            path_results = []
 
-            # Fetch files by folder mappings
             for category_key, path in folder_mappings.items():
-                path = path.rstrip("/")  # Remove trailing slash
                 folder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/root:/{path}:/children"
                 folder_response = requests.get(folder_url, headers=headers)
 
+                found_folders = []
+                found_files = []
+
                 if folder_response.status_code != 200:
                     error_msg = f"Failed to fetch folder '{path}'. Status: {folder_response.status_code}. URL: {folder_url}"
-                    logger.error(error_msg)
                     path_results.append({"path": path, "status": "error", "message": error_msg})
                     continue
 
                 items = folder_response.json().get("value", [])
                 if not items:
-                    warning_msg = f"No items found in folder '{path}'. URL: {folder_url}. Possible reasons: folder empty or incorrect path."
-                    logger.warning(warning_msg)
+                    warning_msg = f"No items found in folder '{path}'. URL: {folder_url}. Possible reasons: empty folder or incorrect path."
                     path_results.append({"path": path, "status": "warning", "message": warning_msg})
                     continue
 
                 files_found = 0
                 for item in items:
                     if "folder" in item and item["name"].lower() in ["application", "server"]:
+                        found_folders.append(item["name"])
                         subfolder_id = item["id"]
                         subfolder_url = f"{GRAPH_BASE_URL}/drives/{drive_id}/items/{subfolder_id}/children"
                         subfolder_response = requests.get(subfolder_url, headers=headers)
 
                         if subfolder_response.status_code != 200:
                             error_msg = f"Failed to fetch subfolder '{item['name']}' under '{path}'. Status: {subfolder_response.status_code}. URL: {subfolder_url}"
-                            logger.error(error_msg)
+                            path_results.append({"path": path, "status": "error", "message": error_msg})
                             continue
 
                         sub_items = subfolder_response.json().get("value", [])
                         if not sub_items:
-                            logger.warning(f"No files found in subfolder '{item['name']}' under '{path}'. URL: {subfolder_url}")
                             continue
 
                         for sub_item in sub_items:
                             if "file" in sub_item:
+                                found_files.append(sub_item["name"])
                                 parsed = self.parse_filename(sub_item["name"])
                                 file_type = self.get_file_type(sub_item["name"], file_type_mappings)
                                 DocumentationBinding.objects.update_or_create(
@@ -219,12 +215,20 @@ class DocumentationBindingView(View):
                                 files_found += 1
 
                 if files_found > 0:
-                    path_results.append({"path": path, "status": "success", "message": f"Fetched {files_found} files from '{path}'."})
+                    path_results.append({
+                        "path": path,
+                        "status": "success",
+                        "message": f"Fetched {files_found} files. Found Folders: {', '.join(found_folders)}. Found Files: {', '.join(found_files)}"
+                    })
                 else:
-                    path_results.append({"path": path, "status": "warning", "message": f"No files found in '{path}' despite valid subfolders."})
+                    path_results.append({
+                        "path": path,
+                        "status": "warning",
+                        "message": f"No files found. Found Folders: {', '.join(found_folders) if found_folders else 'None'}"
+                    })
 
             if total_files == 0:
-                return {"status": "error", "error": f"No documents found. Details: {path_results}"}
+                return {"status": "error", "error": "No documents found.", "details": path_results}
 
             return {"status": "success", "count": total_files, "details": path_results}
 
@@ -244,7 +248,7 @@ class DocumentationBindingView(View):
         return {}
 
     def get_file_type(self, filename, file_type_mappings):
-        filename = filename.lower()  # Normalize case
+        filename = filename.lower()
         for ext, label in file_type_mappings.items():
             if filename.endswith(ext.lower()):
                 return label
