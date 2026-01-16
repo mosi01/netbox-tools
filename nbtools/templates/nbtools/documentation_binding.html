@@ -94,7 +94,7 @@
                         <td><a href="{{ doc.sharepoint_url }}" target="_blank">{{ doc.file_name }}</a></td>
                         <td>{{ doc.version }}</td>
                         <td>{{ doc.file_type }}</td>
-                        <td>{{ doc.application_name|default:"Server" }}</td>
+                        <td>{{ doc.application_name|default:"Empty" }}</td>
                         <td>{{ doc.category }}</td>
                         <td>{{ doc.exists_flag|yesno:"True,False" }}</td>
                     </tr>
