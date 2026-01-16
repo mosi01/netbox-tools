@@ -1,0 +1,10 @@
+{% if document %}
+<div class="panel panel-default">
+    <div class="panel-heading"><strong>Assigned Documentation</strong></div>
+    <div class="panel-body">
+        <p><strong>File:</strong> {{ document.file_name }} ({{ document.version }})</p>
+        <p><strong>Type:</strong> {{ document.file_type }}</p>
+        <p><a href="{{ document.sharepoint_url }}" target="_blank">Open in SharePoint</a></p>
+    </div>
+</div>
+{% endif %}
