@@ -43,17 +43,21 @@ def dashboard(request):
 
 
 
+
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
 
     def get(self, request):
         config = SharePointConfig.objects.first()
-        if config and not getattr(config, "file_type_mappings", None):
-            config.file_type_mappings = '{" .docx": "Word Document", ".vsdx": "Visio Drawing", ".xlsx": "Excel Spreadsheet"}'
+        if config and not config.file_type_mappings:
+            config.file_type_mappings = {
+                ".docx": "Word Document",
+                ".vsdx": "Visio Drawing",
+                ".xlsx": "Excel Spreadsheet"
+            }
 
         docs = DocumentationBinding.objects.all().order_by('category', 'server_name')
-
         for doc in docs:
             exists = Device.objects.filter(name=doc.server_name).exists() or VirtualMachine.objects.filter(name=doc.server_name).exists()
             doc.exists_flag = exists
@@ -69,13 +73,15 @@ class DocumentationBindingView(View):
                 client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
 
+                # Folder mappings
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
                 folder_mappings = {k.strip(): v.strip().rstrip("/") for k, v in zip(folder_keys, folder_values) if k and v}
 
+                # File type mappings
                 file_type_mappings_raw = request.POST.get("file_type_mappings", "{}").strip()
                 try:
-                    json.loads(file_type_mappings_raw)
+                    file_type_mappings = json.loads(file_type_mappings_raw)
                 except json.JSONDecodeError:
                     messages.error(request, "Invalid JSON in File Type Mappings.")
                     return redirect("plugins:nbtools:documentation_binding")
@@ -88,7 +94,7 @@ class DocumentationBindingView(View):
                         "client_id": client_id,
                         "client_secret": client_secret,
                         "folder_mappings": folder_mappings,
-                        "file_type_mappings": file_type_mappings_raw
+                        "file_type_mappings": file_type_mappings
                     }
                 )
                 messages.success(request, "Configuration saved successfully.")
@@ -116,11 +122,8 @@ class DocumentationBindingView(View):
 
         DocumentationBinding.objects.all().delete()
 
-        try:
-            folder_mappings = config.folder_mappings
-            file_type_mappings = json.loads(getattr(config, "file_type_mappings", "{}"))
-        except Exception:
-            return {"status": "error", "error": "Invalid mappings."}
+        folder_mappings = config.folder_mappings
+        file_type_mappings = config.file_type_mappings  # ✅ Use dict directly
 
         try:
             token_url = f"https://login.microsoftonline.com/{config.application_id}/oauth2/v2.0/token"
