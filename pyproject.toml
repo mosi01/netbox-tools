@@ -17,7 +17,6 @@ dependencies = []
 [project.urls]
 Homepage = "https://github.com/mosi01/netbox-tools"
 
-
 [tool.setuptools]
 include-package-data = true
 
@@ -26,4 +25,4 @@ where = ["."]
 include = ["nbtools"]
 
 [tool.setuptools.package-data]
-"nbtools" = ["*", "migrations/*.py"]
+"nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py"]
