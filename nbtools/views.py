@@ -73,9 +73,15 @@ class DocumentationBindingView(View):
                 # Build folder mappings from dynamic fields
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
-                folder_mappings = {k: v for k, v in zip(folder_keys, folder_values) if k and v}
+                folder_mappings = {k.strip(): v.strip() for k, v in zip(folder_keys, folder_values) if k and v}
 
-                file_type_mappings = request.POST.get("file_type_mappings")
+                # Validate file type mappings
+                file_type_mappings_raw = request.POST.get("file_type_mappings", "{}").strip()
+                try:
+                    json.loads(file_type_mappings_raw)  # Validate JSON
+                except json.JSONDecodeError:
+                    messages.error(request, "Invalid JSON in File Type Mappings.")
+                    return redirect("plugins:nbtools:documentation_binding")
 
                 SharePointConfig.objects.update_or_create(
                     id=1,
@@ -85,7 +91,7 @@ class DocumentationBindingView(View):
                         "client_id": client_id,
                         "client_secret": client_secret,
                         "folder_mappings": folder_mappings,
-                        "file_type_mappings": file_type_mappings
+                        "file_type_mappings": file_type_mappings_raw
                     }
                 )
                 messages.success(request, "Configuration saved successfully.")
@@ -112,7 +118,7 @@ class DocumentationBindingView(View):
         DocumentationBinding.objects.all().delete()  # Clear cache
 
         try:
-            folder_mappings = config.folder_mappings  # ✅ FIX: Already a dict
+            folder_mappings = config.folder_mappings  # Already a dict
             file_type_mappings = json.loads(getattr(config, "file_type_mappings", "{}"))
         except Exception:
             return {"status": "error", "error": "Invalid mappings."}
@@ -211,10 +217,12 @@ class DocumentationBindingView(View):
         return {}
 
     def get_file_type(self, filename, file_type_mappings):
+        filename = filename.lower()  # Normalize case
         for ext, label in file_type_mappings.items():
-            if filename.endswith(ext):
+            if filename.endswith(ext.lower()):
                 return label
         return "Unknown"
+
 
 
 method_decorator(csrf_exempt, name='dispatch')
