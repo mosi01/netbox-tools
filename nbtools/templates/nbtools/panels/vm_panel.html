@@ -1,10 +1,34 @@
-{% if document %}
+{% if grouped_docs %}
 <div class="panel panel-default">
     <div class="panel-heading"><strong>Assigned Documentation</strong></div>
     <div class="panel-body">
-        <p><strong>File:</strong> {{ document.file_name }} ({{ document.version }})</p>
-        <p><strong>Type:</strong> {{ document.file_type }}</p>
-        <p><a href="{{ document.sharepoint_url }}" target="_blank">Open in SharePoint</a></p>
+        {% for category, docs in grouped_docs.items %}
+            <h5><strong>{{ category }}</strong></h5>
+            <table class="table table-hover table-striped">
+                <thead>
+                    <tr>
+                        <th>Filename (Version)</th>
+                        <th>File Type</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in docs %}
+                        <tr>
+                            <td>
+                                <a href="{{ doc.sharepoint_url }}" target="_blank">
+                                    {{ doc.file_name }} ({{ doc.version }})
+                                </a>
+                            </td>
+                            <td>{{ doc.file_type }}</td>
+                            <td>{{ doc.category }}</td>
+                            <td>{{ category }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endfor %}
     </div>
 </div>
 {% endif %}
