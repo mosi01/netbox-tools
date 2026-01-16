@@ -1,7 +1,9 @@
 {% extends 'base/layout.html' %}
+
 {% block header %}
 <h1>Documentation Binding</h1>
 {% endblock header %}
+
 {% block content %}
 <div class="container">
 
@@ -18,6 +20,8 @@
     <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
         {% csrf_token %}
         <input type="hidden" name="action" value="save_config">
+
+        <!-- SharePoint Config -->
         <div class="mb-3">
             <label class="form-label">SharePoint Site URL:</label>
             <input type="text" name="site_url" class="form-control" value="{{ config.site_url }}">
@@ -35,7 +39,7 @@
             <input type="password" name="client_secret" class="form-control" value="{{ config.client_secret }}">
         </div>
 
-        <!-- Dynamic Folder Mappings -->
+        <!-- Folder Mappings -->
         <div class="mb-3">
             <label class="form-label">Folder Mappings:</label>
             <div id="folder-mappings-container">
@@ -51,8 +55,16 @@
 
         <!-- File Type Mappings -->
         <div class="mb-3">
-            <label class="form-label">File Type Mappings (JSON):</label>
-            <textarea name="file_type_mappings" class="form-control" rows="4">{{ config.file_type_mappings }}</textarea>
+            <label class="form-label">File Type Mappings:</label>
+            <div id="file-type-mappings-container">
+                {% for key, value in config.file_type_mappings.items %}
+                <div class="d-flex mb-2">
+                    <input type="text" name="file_type_keys[]" class="form-control me-2" value="{{ key }}" placeholder="Extension (e.g., .docx)">
+                    <input type="text" name="file_type_values[]" class="form-control" value="{{ value }}" placeholder="Description">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addFileTypeMapping()">Add More</button>
         </div>
 
         <button type="submit" class="btn btn-primary">Save Configuration</button>
@@ -99,6 +111,7 @@
     </div>
 </div>
 
+<!-- JavaScript for dynamic fields -->
 <script>
 function addFolderMapping() {
     const container = document.getElementById('folder-mappings-container');
@@ -107,6 +120,17 @@ function addFolderMapping() {
     div.innerHTML = `
         <input type="text" name="folder_keys[]" class="form-control me-2" placeholder="Key">
         <input type="text" name="folder_values[]" class="form-control" placeholder="Path">
+    `;
+    container.appendChild(div);
+}
+
+function addFileTypeMapping() {
+    const container = document.getElementById('file-type-mappings-container');
+    const div = document.createElement('div');
+    div.className = 'd-flex mb-2';
+    div.innerHTML = `
+        <input type="text" name="file_type_keys[]" class="form-control me-2" placeholder="Extension (e.g., .docx)">
+        <input type="text" name="file_type_values[]" class="form-control" placeholder="Description">
     `;
     container.appendChild(div);
 }
