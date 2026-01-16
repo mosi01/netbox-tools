@@ -199,7 +199,6 @@ class DocumentationBindingView(View):
                 return label
         return "Unknown"
 
-
 method_decorator(csrf_exempt, name='dispatch')
 class IPPrefixCheckerView(View):
     template_name = "nbtools/ip_prefix_checker.html"
