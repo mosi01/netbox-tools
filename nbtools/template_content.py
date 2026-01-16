@@ -6,10 +6,16 @@ class VirtualMachinePanel(PluginTemplateExtension):
 
     def right_page(self):
         vm = self.context['object']  # Current VM object
-        # Find document assigned to this VM by server_name
-        document = DocumentationBinding.objects.filter(server_name=vm.name).first()
-        if document:
-            return self.render('nbtools/panels/vm_panel.html', extra_context={'document': document})
+        # Fetch all documents assigned to this VM
+        documents = DocumentationBinding.objects.filter(server_name=vm.name).order_by('category', 'file_name')
+
+        if documents.exists():
+            # Group documents by category
+            grouped_docs = {}
+            for doc in documents:
+                grouped_docs.setdefault(doc.category, []).append(doc)
+
+            return self.render('nbtools/panels/vm_panel.html', extra_context={'grouped_docs': grouped_docs})
         return ''  # Hide panel if no document assigned
 
 template_extensions = [VirtualMachinePanel]
