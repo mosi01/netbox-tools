@@ -5,14 +5,15 @@ class VirtualMachinePanel(PluginTemplateExtension):
     model = 'virtualization.virtualmachine'
 
     def right_page(self):
-        vm = self.context['object']
-        documents = DocumentationBinding.objects.filter(server_name=vm.name).order_by('category', 'file_name')
+        obj = self.context.get('object')
+        if not isinstance(obj, VirtualMachine):
+            return ''  # Do nothing for non-VM objects
 
+        documents = DocumentationBinding.objects.filter(server_name=obj.name).order_by('category', 'file_name')
         if documents.exists():
             grouped_docs = {}
             for doc in documents:
                 grouped_docs.setdefault(doc.category, []).append(doc)
-
             return self.render('nbtools/panels/vm_panel.html', extra_context={'grouped_docs': grouped_docs})
         return ''
 
