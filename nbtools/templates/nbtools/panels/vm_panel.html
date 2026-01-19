@@ -18,7 +18,6 @@
                             <th>Filename (Version)</th>
                             <th>File Type</th>
                             <th>Type</th>
-                            <th>Category</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -30,8 +29,7 @@
                                 </a>
                             </td>
                             <td>{{ doc.file_type }}</td>
-                            <td>{{ doc.category }}</td>
-                            <td>{{ category }}</td>
+                            <td>{{ doc.application_name }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
