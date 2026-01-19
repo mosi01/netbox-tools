@@ -17,7 +17,7 @@ class DocumentationReviewJob(Job):
 				if not status or last < cutoff:
 					pending.append({
 						"object_type": 	model._meta.verbose_name.title(),
-						"name":		obj.name,
+						"name":	str(obj),
 						"last_update":	last,
 						"reviewed":	status,
 					})
