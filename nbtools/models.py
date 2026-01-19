@@ -1,5 +1,6 @@
 from django.db import models
 
+#Sharepoint configuration model, used for sharepoint configuration
 class SharePointConfig(models.Model):
     site_url = models.URLField()
     application_id = models.CharField(max_length=255)
@@ -11,7 +12,7 @@ class SharePointConfig(models.Model):
     def __str__(self):
         return f"SharePoint Config for {self.site_url}"
 
-
+#Documentation Binding model, used for document caching
 class DocumentationBinding(models.Model):
     category = models.CharField(max_length=255)
     server_name = models.CharField(max_length=255, db_index=True)
