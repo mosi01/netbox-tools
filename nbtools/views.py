@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from ipaddress import ip_network
 from ipam.models import Prefix, VRF, IPAddress
-
+#test
 from .models import SharePointConfig, DocumentationBinding
 
 from office365.sharepoint.client_context import ClientContext

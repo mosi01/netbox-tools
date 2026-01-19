@@ -12,7 +12,7 @@ class SharePointConfig(models.Model):
     def __str__(self):
         return f"SharePoint Config for {self.site_url}"
 
-#Documentation Binding model, used for document caching
+#Documentation Binding model, used for document caching, test comment
 class DocumentationBinding(models.Model):
     category = models.CharField(max_length=255)
     server_name = models.CharField(max_length=255, db_index=True)
