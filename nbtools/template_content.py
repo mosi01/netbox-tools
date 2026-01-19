@@ -6,10 +6,8 @@ class VirtualMachinePanel(PluginTemplateExtension):
 
     def right_page(self):
         obj = self.context.get('object')
-        if not isinstance(obj, VirtualMachine):
-            return ''  # Do nothing for non-VM objects
-
-        documents = DocumentationBinding.objects.filter(server_name=obj.name).order_by('category', 'file_name')
+        documents = DocumentationBinding.objects.filter(server_name=str(obj)).order_by('category', 'file_name')
+        
         if documents.exists():
             grouped_docs = {}
             for doc in documents:
