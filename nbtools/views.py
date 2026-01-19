@@ -430,7 +430,7 @@ class DocumentationReviewerView(View):
 
                 updates.append(obj)
             except Exception as e:
-                logger.exception(f"Error preparing {obj.name}: {e}")
+                logger.exception(f"Error preparing {str(obj)}: {e}")
 
         total = len(updates)
         logger.info(f"Starting batch update for {total} objects...")
@@ -474,7 +474,7 @@ class DocumentationReviewerView(View):
 
                     if not latest_update or outdated or reviewed is not True:
                         flagged_objects.append({
-                            "name": obj.name,
+                            "name": str(obj),
                             "type": label,
                             "latest_update": latest_update,
                             "reviewed": reviewed is True,
