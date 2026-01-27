@@ -22,7 +22,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["nbtools"]
+include = ["nbtools*"]
 
 [tool.setuptools.package-data]
 "nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py", "Views/*.py"]
