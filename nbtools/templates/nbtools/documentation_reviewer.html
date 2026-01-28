@@ -1,184 +1,190 @@
-
 {% extends 'base/layout.html' %}
 {% load static %}
 
 {% block header %}
-    <h1>Documentation Reviewer</h1>
+  <h1>Documentation Reviewer</h1>
 {% endblock header %}
 
 {% block content %}
 <div id="alert-wrapper">
-    {# Displays Django messages if any exist #}
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} mt-3 mx-3">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} mt-3 mx-3">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endif %}
 
-    {# Displays a single warning message if provided #}
-    {% if message %}
-        <div class="alert alert-warning mx-3">
-            {{ message }}
-        </div>
-    {% endif %}
+  {% if message %}
+    <div class="alert alert-warning mx-3">
+      {{ message }}
+    </div>
+  {% endif %}
 
-    {# Displays IDs that were marked as reviewed #}
-    {% if reviewed_ids %}
-        <div class="alert alert-info mx-3">
-            Reviewed IDs received: {{ reviewed_ids|join:", " }}
-        </div>
-    {% endif %}
+  {% if reviewed_ids %}
+    <div class="alert alert-info mx-3">
+      Reviewed IDs received: {{ reviewed_ids|join:", " }}
+    </div>
+  {% endif %}
 </div>
 
 <div class="container">
-    <p>Below are Devices and Virtual Machines with missing or outdated documentation.</p>
+  <p>Below are Devices and Virtual Machines with missing or outdated documentation.</p>
 
-    <!-- Search and action form -->
-    <form method="post">
-        {% csrf_token %}
-        <div class="form-group">
-            <!-- Input for searching by name -->
-            <input type="text" name="search" class="form-control" placeholder="Search by name..."
-                   value="{{ search_query }}" autocomplete="off">
-        </div>
-        <div class="form-group">
-            <!-- Hidden field to indicate action -->
-            <input type="hidden" name="action" value="check_fields">
-            <!-- Buttons to trigger check or update actions -->
-            <button type="submit" class="btn btn-primary">Check Fields</button>
-            <button type="submit" name="action" value="update_fields" class="btn btn-primary">Update Fields</button>
-        </div>
+  <!-- Search and action form -->
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-group">
+      <input
+        type="text"
+        name="search"
+        class="form-control"
+        placeholder="Search by name..."
+        value="{{ search_query }}"
+        autocomplete="off"
+      >
+    </div>
+    <div class="form-group">
+      <input type="hidden" name="action" value="check_fields">
+      <button type="submit" class="btn btn-primary">Check Fields</button>
+      <button type="submit" name="action" value="update_fields" class="btn btn-primary">
+        Update Fields
+      </button>
+    </div>
+  </form>
+
+  {% if flagged_objects %}
+    <!-- Table listing flagged objects -->
+    <form method="post" id="review-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="mark_reviewed">
+      <input type="hidden" name="selected_count" id="selected-count-field">
+
+      <table class="table table-hover mt-3">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="check-all"></th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Latest Update</th>
+            <th>Reviewed</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in flagged_objects %}
+          <tr>
+            <td>
+              <input type="checkbox" name="reviewed_ids" value="{{ obj.id }}">
+            </td>
+
+            <td>
+              <a href="{{ obj.url }}" target="_blank">
+                {{ obj.name }}
+              </a>
+            </td>
+
+            <td>{{ obj.type }}</td>
+
+            <td>{{ obj.latest_update|default_if_none:"Not available" }}</td>
+
+            <td>{% if obj.reviewed %}Yes{% else %}No{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </form>
 
-    {% if flagged_objects %}
-        <!-- Table listing flagged objects for review -->
-        <form method="post" id="review-form">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="mark_reviewed">
-            <input type="hidden" name="selected_count" id="selected-count-field">
-
-            <table class="table table-hover mt-3">
-                <thead>
-                    <tr>
-                        <th><input type="checkbox" id="check-all"></th> <!-- Checkbox to select all rows -->
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Latest Update</th>
-                        <th>Reviewed</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for obj in flagged_objects %}
-                    <tr>
-                        <!-- Checkbox for individual object -->
-                        <td>
-                            <input type="checkbox" name="reviewed_ids" value="{{ obj.id }}">
-                        </td>
-
-                        <!-- Object name as link -->
-                        <td>
-                            <a href="{{ obj.url }}" target="_blank">
-                                {{ obj.name }}
-                            </a>
-                        </td>
-
-                        <!-- Type -->
-                        <td>{{ obj.type }}</td>
-
-                        <!-- Latest Update -->
-                        <td>{{ obj.latest_update|default_if_none:"Not available" }}</td>
-
-                        <!-- Reviewed -->
-                        <td>{% if obj.reviewed %}Yes{% else %}No{% endif %}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-
-            </table>
-        </form>
-
-        <!-- Floating Save Button for reviewed items -->
-        <div id="floating-save-container">
-            <span id="selected-count">Selected: 0</span>
-            <button type="submit" form="review-form" class="btn btn-success" id="save-button">
-                <span id="save-text">Save Reviewed</span>
-                <span id="spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-            </button>
-        </div>
-    {% else %}
-        <p>All documentation is up to date and reviewed.</p>
-    {% endif %}
+    <!-- Floating Save Button (always visible) -->
+    <div id="floating-save-container">
+      <span id="selected-count">Selected: 0</span>
+      <button type="submit" form="review-form" class="btn btn-success" id="save-button">
+        <span id="save-text">Save Reviewed</span>
+        <span
+          id="spinner"
+          class="spinner-border spinner-border-sm d-none"
+          role="status"
+          aria-hidden="true"
+        ></span>
+      </button>
+    </div>
+  {% else %}
+    <p>All documentation is up to date and reviewed.</p>
+  {% endif %}
 </div>
 
 <style>
-    /* Styles for floating save button and alert wrapper */
-    body { margin-bottom: 80px; }
-    #alert-wrapper { position: relative; z-index: 10000; }
-    #floating-save-container {
-        position: fixed;
-        bottom: 0; left: 0; right: 0;
-        background-color: var(--bs-body-bg);
-        padding: 12px 20px;
-        border-top: 1px solid var(--bs-border-color);
-        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
-        z-index: 9999;
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        gap: 10px;
-    }
-    #floating-save-container.hidden { display: none; }
-    #selected-count { font-weight: 500; color: var(--bs-secondary-color); }
-    #save-button { min-width: 150px; }
+  body {
+    margin-bottom: 80px;
+  }
+
+  #alert-wrapper {
+    position: relative;
+    z-index: 10000;
+  }
+
+  #floating-save-container {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    background-color: var(--bs-body-bg);
+    padding: 12px 20px;
+    border-top: 1px solid var(--bs-border-color);
+    border-left: 1px solid var(--bs-border-color);
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+
+    min-width: 260px;
+  }
+
+  #selected-count {
+    font-weight: 500;
+    color: var(--bs-secondary-color);
+  }
+
+  #save-button {
+    min-width: 150px;
+  }
 </style>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Selectors for checkboxes and UI elements
-        const checkAll = document.getElementById("check-all");
-        const checkboxes = document.querySelectorAll('input[name="reviewed_ids"]');
-        const selectedCount = document.getElementById("selected-count");
-        const saveButton = document.getElementById("save-button");
-        const spinner = document.getElementById("spinner");
-        const saveText = document.getElementById("save-text");
-        const floatingContainer = document.getElementById("floating-save-container");
-        const selectedCountField = document.getElementById("selected-count-field");
+  document.addEventListener("DOMContentLoaded", function () {
+    const checkAll = document.getElementById("check-all");
+    const checkboxes = document.querySelectorAll('input[name="reviewed_ids"]');
+    const selectedCount = document.getElementById("selected-count");
+    const saveButton = document.getElementById("save-button");
+    const spinner = document.getElementById("spinner");
+    const saveText = document.getElementById("save-text");
+    const selectedCountField = document.getElementById("selected-count-field");
 
-        // Updates the count of selected checkboxes
-        function updateCounter() {
-            const count = Array.from(checkboxes).filter(cb => cb.checked).length;
-            selectedCount.textContent = `Selected: ${count}`;
-            selectedCountField.value = count;
-        }
+    function updateCounter() {
+      const count = Array.from(checkboxes).filter(cb => cb.checked).length;
+      selectedCount.textContent = `Selected: ${count}`;
+      selectedCountField.value = count;
+    }
 
-        // Toggles visibility of floating save button based on table position
-        function toggleFloatingVisibility() {
-            const table = document.querySelector("table");
-            if (!table) return;
-            const rect = table.getBoundingClientRect();
-            const bottomVisible = rect.bottom <= window.innerHeight;
-            floatingContainer.classList.toggle("hidden", bottomVisible);
-        }
+    checkboxes.forEach(cb => cb.addEventListener("change", updateCounter));
 
-        // Event listeners for checkbox changes and save button click
-        checkboxes.forEach(cb => cb.addEventListener("change", updateCounter));
-        checkAll.addEventListener("change", () => {
-            checkboxes.forEach(cb => cb.checked = checkAll.checked);
-            updateCounter();
-        });
-
-        saveButton.addEventListener("click", () => {
-            spinner.classList.remove("d-none");
-            saveText.textContent = "Saving...";
-        });
-
-        // Initialize UI state
+    if (checkAll) {
+      checkAll.addEventListener("change", () => {
+        checkboxes.forEach(cb => cb.checked = checkAll.checked);
         updateCounter();
-        toggleFloatingVisibility();
-        window.addEventListener("scroll", toggleFloatingVisibility);
-        window.addEventListener("resize", toggleFloatingVisibility);
-    });
+      });
+    }
+
+    if (saveButton) {
+      saveButton.addEventListener("click", () => {
+        spinner.classList.remove("d-none");
+        saveText.textContent = "Saving...";
+      });
+    }
+
+    updateCounter();
+  });
 </script>
+
 {% endblock content %}
