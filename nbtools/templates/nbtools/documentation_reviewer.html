@@ -71,16 +71,31 @@
                 </thead>
                 <tbody>
                     {% for obj in flagged_objects %}
-                        <tr>
-                            <!-- Checkbox for individual object -->
-                            <td><input type="checkbox" name="reviewed_ids" value="{{ obj.id }}"></td>
-                            <!-- Object details -->
-                            <td><a href="{{ obj.url }}" target="_blank                           <td>{{ obj.type }}</td>
-                            <td>{{ obj.latest_update|default_if_none:"Not available" }}</td>
-                            <td>{% if obj.reviewed %}Yes{% else %}No{% endif %}</td>
-                        </tr>
+                    <tr>
+                        <!-- Checkbox for individual object -->
+                        <td>
+                            <input type="checkbox" name="reviewed_ids" value="{{ obj.id }}">
+                        </td>
+
+                        <!-- Object name as link -->
+                        <td>
+                            <a href="{{ obj.url }}" target="_blank">
+                                {{ obj.name }}
+                            </a>
+                        </td>
+
+                        <!-- Type -->
+                        <td>{{ obj.type }}</td>
+
+                        <!-- Latest Update -->
+                        <td>{{ obj.latest_update|default_if_none:"Not available" }}</td>
+
+                        <!-- Reviewed -->
+                        <td>{% if obj.reviewed %}Yes{% else %}No{% endif %}</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
+
             </table>
         </form>
 
