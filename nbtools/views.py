@@ -3,6 +3,8 @@ from .view_scripts.Documentation_binding import DocumentationBindingView
 from .view_scripts.IP_prefix_checker import IPPrefixCheckerView
 from .view_scripts.Prefix_validator import PrefixValidatorView
 from .view_scripts.Documentation_reviewer import DocumentationReviewerView
+from .view_scripts.Serial_checker import SerialChecker
+from .view_scripts.VM_tool import VMToolView
 
 from django.shortcuts import render
 
