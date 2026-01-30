@@ -1,31 +1,34 @@
-from django.views.generic import ListView
-from django.db.models import Q
+"""
+Service_list.py
+
+NetBox Tools plugin - list view for Service objects.
+
+This view uses NetBox's ObjectListView together with the ServiceTable
+and ServiceFilterSet to render a Device-like list.
+"""
+
+import logging
+
+from netbox.views.generic import ObjectListView
 
 from ..models import Service
+from ..tables import ServiceTable
+from ..filtersets import ServiceFilterSet
 
-class ServiceListView(ListView):
+logger = logging.getLogger("nbtools")
+
+
+class ServiceListView(ObjectListView):
     """
     List view for Services.
 
-    Similar to ApplicationListView, with quick search and pagination.
+    URL: /plugins/nbtools/services/
+
+    Uses NetBox's generic/object_list.html template to get the full
+    standard UI look & feel.
     """
-    model = Service
-    template_name = "nbtools/applications/service_list.html"
-    context_object_name = "services"
-    paginate_by = 50
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        q = self.request.GET.get("q")
-        if q:
-            queryset = queryset.filter(
-                Q(name__icontains=q)
-                | Q(display_name__icontains=q)
-                | Q(description__icontains=q)
-            )
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["search_query"] = self.request.GET.get("q", "")
-        return context
+    queryset = Service.objects.all().prefetch_related("service_owner")
+    table = ServiceTable
+    filterset = ServiceFilterSet
+    template_name = "generic/object_list.html"

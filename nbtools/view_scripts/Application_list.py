@@ -1,37 +1,45 @@
+"""
+Application_list.py
 
-from django.views.generic import ListView
-from django.db.models import Q
+NetBox Tools plugin - list view for Application objects.
+
+This view uses NetBox's ObjectListView together with the ApplicationTable
+and ApplicationFilterSet to render a Device-like list, including:
+  - Header with title & action buttons (Add, Import, Export)
+  - Quick search bar
+  - Right-hand filters panel
+  - Configure table button
+  - Checkboxes for bulk actions
+"""
+
+import logging
+
+from netbox.views.generic import ObjectListView
 
 from ..models import Application
+from ..tables import ApplicationTable
+from ..filtersets import ApplicationFilterSet
 
-class ApplicationListView(ListView):
+logger = logging.getLogger("nbtools")
+
+
+class ApplicationListView(ObjectListView):
     """
     List view for Applications.
 
-    This will later be wired to a template that looks similar to the
-    built-in Device list (with filters, search, add/import/export etc.).
-    For now it provides:
-      * Pagination
-      * Simple quick search on name/display_name/description
+    URL: /plugins/nbtools/applications/
+
+    Uses NetBox's generic/object_list.html template to get the full
+    standard UI look & feel.
     """
-    model = Application
-    template_name = "nbtools/applications/application_list.html"
-    context_object_name = "applications"
-    paginate_by = 50
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        q = self.request.GET.get("q")
-        if q:
-            queryset = queryset.filter(
-                Q(name__icontains=q)
-                | Q(display_name__icontains=q)
-                | Q(description__icontains=q)
-            )
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Preserve search query in the context
-        context["search_query"] = self.request.GET.get("q", "")
-        return context
+    queryset = Application.objects.all().prefetch_related(
+        "service",
+        "application_owner",
+        "technical_contact",
+        "devices",
+        "virtual_machines",
+    )
+    table = ApplicationTable
+    filterset = ApplicationFilterSet
+    template_name = "generic/object_list.html"
