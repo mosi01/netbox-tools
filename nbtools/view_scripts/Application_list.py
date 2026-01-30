@@ -2,7 +2,7 @@
 from django.views.generic import ListView
 from django.db.models import Q
 
-from .models import Application
+from ..models import Application
 
 class ApplicationListView(ListView):
     """

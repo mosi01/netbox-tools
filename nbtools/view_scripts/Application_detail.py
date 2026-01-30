@@ -3,7 +3,7 @@ from django.views.generic import DetailView
 from django.db.models import Q
 
 
-from .models import Application
+from ..models import Application
 
 
 class ApplicationDetailView(DetailView):

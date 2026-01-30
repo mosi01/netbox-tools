@@ -1,5 +1,5 @@
 from django.views.generic import DetailView
-from .models import Service
+from ..models import Service
 
 
 

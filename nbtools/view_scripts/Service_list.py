@@ -1,7 +1,7 @@
 from django.views.generic import ListView
 from django.db.models import Q
 
-from .models import Service
+from ..models import Service
 
 class ServiceListView(ListView):
     """
