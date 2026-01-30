@@ -25,4 +25,4 @@ where = ["."]
 include = ["nbtools*"]
 
 [tool.setuptools.package-data]
-"nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py", "view_scripts/*.py", "applications/*.html"]
+"nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py", "view_scripts/*.py"]
