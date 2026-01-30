@@ -1,24 +1,28 @@
 """
 application_edit.py
-Corrected version for NetBox 4.5.x
+====================
 
-IMPORTANT:
-NetBox's generic/object_edit.html template requires:
+Form-based create/edit view for Application objects in the NetBox Tools
+(nbtools) plugin.
 
-  object      -> an instance of the model (NEVER None)
-  object_type -> the model class
+Key points for NetBox 4.5 compatibility:
 
-If object is None, the template tries to do:
-    object|meta:"verbose_name"
-Which becomes None._meta and crashes.
+- Uses generic/object_edit.html, which requires:
+    * context["object"]      -> model instance (NEVER None)
+    * context["object_type"] -> model class (Application)
 
-Therefore, when adding a new Application, we MUST pass:
-    object = Application()   # unsaved instance
+- When adding a new Application, we construct an unsaved instance:
+    object = Application()
+  so that object._meta is available in the template.
 
-This is exactly how NetBox's built-in ObjectEditView behaves.
+- Redirects after save to the detail URL named "application"
+  (not "application_detail"), because urls.py uses:
+
+    path("applications/<int:pk>/", ..., name="application")
 """
 
 import logging
+
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views import View
@@ -30,31 +34,36 @@ logger = logging.getLogger("nbtools")
 
 
 class ApplicationEditView(View):
-    """Create/edit Application objects."""
+    """Create/edit Application objects using generic/object_edit.html."""
 
     template_name = "generic/object_edit.html"
 
     def get_object(self, pk):
-        """Fetch object or return UNSAVED instance for object creation."""
+        """
+        Return an Application instance.
+
+        - If pk is None, return a NEW unsaved instance (for "add" view).
+        - If pk is provided, fetch the existing object or 404.
+        """
         if pk is None:
-            return Application()   # <-- critical fix (never return None)
+            return Application()
         return get_object_or_404(Application, pk=pk)
 
     def get(self, request, pk=None):
-        """Render form."""
+        """Render the blank or pre-filled form."""
         object = self.get_object(pk)
         form = ApplicationForm(instance=object)
 
-        # Return URL
+        # Determine where to go after a successful save
         if object.pk:
-            return_url = reverse("plugins:nbtools:application_detail", args=[object.pk])
+            return_url = reverse("plugins:nbtools:application", args=[object.pk])
         else:
             return_url = reverse("plugins:nbtools:application_list")
 
-        # REQUIRED context
+        # NetBox generic/object_edit.html expects "object" and "object_type"
         context = {
             "form": form,
-            "object": object,        # instance, even when new
+            "object": object,
             "object_type": Application,
             "return_url": return_url,
         }
@@ -62,25 +71,26 @@ class ApplicationEditView(View):
         return render(request, self.template_name, context)
 
     def post(self, request, pk=None):
-        """Process submitted form."""
+        """Handle form submission (create or update)."""
         object = self.get_object(pk)
         form = ApplicationForm(request.POST, instance=object)
 
         if form.is_valid():
             object = form.save()
+            # Redirect to the DETAIL view named "application"
             return redirect(
-                reverse("plugins:nbtools:application_detail", args=[object.pk])
+                reverse("plugins:nbtools:application", args=[object.pk])
             )
 
-        # Return URL for failed form
+        # Form invalid: re-render with errors
         if object.pk:
-            return_url = reverse("plugins:nbtools:application_detail", args=[object.pk])
+            return_url = reverse("plugins:nbtools:application", args=[object.pk])
         else:
             return_url = reverse("plugins:nbtools:application_list")
 
         context = {
             "form": form,
-            "object": object,        # instance, not None
+            "object": object,
             "object_type": Application,
             "return_url": return_url,
         }
