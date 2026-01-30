@@ -20,10 +20,6 @@ class Migration(migrations.Migration):
     # If your existing initial migration is not named "0001_initial",
     # adjust this dependency to match the last migration file.
     dependencies = [
-        ("tenancy", "0001_initial"),        # for Contact model
-        ("dcim", "0001_initial"),           # for Device model
-        ("virtualization", "0001_initial"), # for VirtualMachine model
-        ("nbtools", "0001_initial"),        # your plugin's initial migration
         ("nbtools", "0002_add_file_type_mappings")
     ]
 
