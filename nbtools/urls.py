@@ -59,7 +59,7 @@ urlpatterns = [
     # Applications & Services
     # -----------------------------------------------------------------------
 
-    # Applications list + detail + add + edit
+    # Applications list + detail + add + edit + delete
     path(
         "applications/",
         views.ApplicationListView.as_view(),
@@ -73,15 +73,20 @@ urlpatterns = [
     path(
         "applications/<int:pk>/",
         views.ApplicationDetailView.as_view(),
-        name="application",            # <-- FIXED
+        name="application",
     ),
     path(
         "applications/<int:pk>/edit/",
         views.ApplicationEditView.as_view(),
         name="application_edit",
     ),
+    path(
+        "applications/<int:pk>/delete/",
+        views.ApplicationDeleteView.as_view(),
+        name="application_delete",
+    ),
 
-    # Services list + detail + add + edit
+    # Services list + detail + add + edit + delete
     path(
         "services/",
         views.ServiceListView.as_view(),
@@ -95,11 +100,16 @@ urlpatterns = [
     path(
         "services/<int:pk>/",
         views.ServiceDetailView.as_view(),
-        name="service",                # <-- FIXED
+        name="service",
     ),
     path(
         "services/<int:pk>/edit/",
         views.ServiceEditView.as_view(),
         name="service_edit",
+    ),
+    path(
+        "services/<int:pk>/delete/",
+        views.ServiceDeleteView.as_view(),
+        name="service_delete",
     ),
 ]
