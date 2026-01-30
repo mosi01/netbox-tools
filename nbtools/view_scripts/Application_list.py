@@ -3,16 +3,19 @@ Application_list.py
 
 NetBox Tools plugin - list view for Application objects.
 
-This view uses NetBox's ObjectListView together with the ApplicationTable
-and ApplicationFilterSet to render a Device-like list, including:
-  - Header with title & action buttons (Add, Import, Export)
-  - Quick search bar
-  - Right-hand filters panel
-  - Configure table button
-  - Checkboxes for bulk actions
+Uses NetBox's ObjectListView together with ApplicationTable and
+ApplicationFilterSet to render a Device-like list:
+
+  * Header with title & action buttons
+  * Quick search bar
+  * Right-hand filters panel
+  * Configure table button
+  * Checkboxes for bulk actions
 """
 
 import logging
+
+from django.urls import reverse
 
 from netbox.views.generic import ObjectListView
 
@@ -31,6 +34,9 @@ class ApplicationListView(ObjectListView):
 
     Uses NetBox's generic/object_list.html template to get the full
     standard UI look & feel.
+
+    The Add button is wired explicitly to the plugin's Application
+    creation view via get_extra_context().
     """
 
     queryset = Application.objects.all().prefetch_related(
@@ -43,3 +49,13 @@ class ApplicationListView(ObjectListView):
     table = ApplicationTable
     filterset = ApplicationFilterSet
     template_name = "generic/object_list.html"
+
+    def get_extra_context(self, request):
+        """
+        Inject the correct Add URL for Applications so the "Add" button
+        on the list page points to our plugin's creation view, rather
+        than rendering as 'None'.
+        """
+        context = super().get_extra_context(request)
+        context["add_url"] = reverse("plugins:nbtools:application_add")
+        return context

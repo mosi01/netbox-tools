@@ -56,30 +56,50 @@ urlpatterns = [
     ),
 
     # -----------------------------------------------------------------------
-    # New: Applications & Services
+    # Applications & Services
     # -----------------------------------------------------------------------
 
-    # Applications list + detail
+    # Applications list + detail + add + edit
     path(
         "applications/",
         views.ApplicationListView.as_view(),
         name="application_list",
     ),
     path(
+        "applications/add/",
+        views.ApplicationEditView.as_view(),
+        name="application_add",
+    ),
+    path(
         "applications/<int:pk>/",
         views.ApplicationDetailView.as_view(),
         name="application_detail",
     ),
+    path(
+        "applications/<int:pk>/edit/",
+        views.ApplicationEditView.as_view(),
+        name="application_edit",
+    ),
 
-    # Services list + detail
+    # Services list + detail + add + edit
     path(
         "services/",
         views.ServiceListView.as_view(),
         name="service_list",
     ),
     path(
+        "services/add/",
+        views.ServiceEditView.as_view(),
+        name="service_add",
+    ),
+    path(
         "services/<int:pk>/",
         views.ServiceDetailView.as_view(),
         name="service_detail",
+    ),
+    path(
+        "services/<int:pk>/edit/",
+        views.ServiceEditView.as_view(),
+        name="service_edit",
     ),
 ]
