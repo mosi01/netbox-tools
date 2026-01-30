@@ -73,7 +73,7 @@ urlpatterns = [
     path(
         "applications/<int:pk>/",
         views.ApplicationDetailView.as_view(),
-        name="application_detail",
+        name="application",            # <-- FIXED
     ),
     path(
         "applications/<int:pk>/edit/",
@@ -95,7 +95,7 @@ urlpatterns = [
     path(
         "services/<int:pk>/",
         views.ServiceDetailView.as_view(),
-        name="service_detail",
+        name="service",                # <-- FIXED
     ),
     path(
         "services/<int:pk>/edit/",
