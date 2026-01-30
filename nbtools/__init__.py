@@ -11,6 +11,7 @@ class NetboxToolsConfig(PluginConfig):
     author_email = "simon.moller@lindab.com"
     license = "MIT"
     base_url = "nbtools"
+    api_urls = "nbtools.api.urls"
     required_settings = []
     default_settings = {}
     top_level_menu = True
