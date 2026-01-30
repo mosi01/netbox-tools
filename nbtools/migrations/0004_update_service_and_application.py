@@ -1,35 +1,40 @@
 """
-Migration 0004_update_service_and_application_to_netboxmodel
+Migration 0004_update_service_and_application
 
 This migration updates the Service and Application models to align with
-NetBoxModel-based definitions by adding the fields normally provided by
-NetBoxModel:
+their NetBoxModel-based definitions by adding the fields normally
+provided by NetBoxModel:
 
-  - created (DateTimeField)
-  - last_updated (DateTimeField)
-  - tags (TaggableManager)      [if used by NetBoxModel]
-  - custom_field_data (JSONField)
+    * created (DateTimeField)
+    * last_updated (DateTimeField)
+    * custom_field_data (JSONField)
 
-NOTE:
-NetBoxModel is a proxy over Django's Model that injects these fields and
-registers the model with NetBox's features (custom fields, tags, etc.).
-We emulate the field additions here so the database matches the new
-Python model definitions.
+We intentionally do NOT add a tags field here, because tagging is handled
+via NetBox's tagging framework with a shared extras.Tag / extras.TaggedItem
+schema, and the TaggableManager field on NetBoxModel will bind to those.
+
+Prerequisites:
+  * 0003_add_service_and_application has been applied and has created
+    the Service and Application tables.
 """
 
 from django.db import migrations, models
-import taggit.managers
 from django.utils import timezone
 
 
-def set_default_created(apps, schema_editor):
+def backfill_created_timestamps(apps, schema_editor):
     """
-    Backfill a default value for 'created' on existing rows.
-    We just use the current time as a safe fallback.
+    Backfill 'created' with a non-null value on existing Service and
+    Application records.
+
+    We simply set created = now() for any rows where it is NULL.
+    This avoids issues where NetBox expects a non-null created field.
     """
     Service = apps.get_model("nbtools", "Service")
     Application = apps.get_model("nbtools", "Application")
+
     now = timezone.now()
+
     Service.objects.filter(created__isnull=True).update(created=now)
     Application.objects.filter(created__isnull=True).update(created=now)
 
@@ -37,16 +42,15 @@ def set_default_created(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("extras", "0001_initial"),          # for Taggable model (tags)
         ("nbtools", "0003_add_service_and_application"),
     ]
 
     operations = [
-        # ---------------------------------------------------------------------
-        # Service model: Add NetBoxModel fields
-        # ---------------------------------------------------------------------
 
-        # created
+        # ------------------------------------------------------------------
+        # Service model: Add NetBoxModel-like fields
+        # ------------------------------------------------------------------
+
         migrations.AddField(
             model_name="service",
             name="created",
@@ -58,7 +62,6 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
 
-        # last_updated
         migrations.AddField(
             model_name="service",
             name="last_updated",
@@ -70,34 +73,19 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
 
-        # custom_field_data
         migrations.AddField(
             model_name="service",
             name="custom_field_data",
             field=models.JSONField(
-                blank=True,
                 default=dict,
-            ),
-        ),
-
-        # tags (TaggableManager on extras.Tag)
-        migrations.AddField(
-            model_name="service",
-            name="tags",
-            field=taggit.managers.TaggableManager(
                 blank=True,
-                help_text="Tags for this object",
-                through="extras.TaggedItem",
-                to="extras.Tag",
-                verbose_name="Tags",
             ),
         ),
 
-        # ---------------------------------------------------------------------
-        # Application model: Add NetBoxModel fields
-        # ---------------------------------------------------------------------
+        # ------------------------------------------------------------------
+        # Application model: Add NetBoxModel-like fields
+        # ------------------------------------------------------------------
 
-        # created
         migrations.AddField(
             model_name="application",
             name="created",
@@ -109,7 +97,6 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
 
-        # last_updated
         migrations.AddField(
             model_name="application",
             name="last_updated",
@@ -121,32 +108,20 @@ class Migration(migrations.Migration):
             preserve_default=False,
         ),
 
-        # custom_field_data
         migrations.AddField(
             model_name="application",
             name="custom_field_data",
             field=models.JSONField(
-                blank=True,
                 default=dict,
-            ),
-        ),
-
-        # tags
-        migrations.AddField(
-            model_name="application",
-            name="tags",
-            field=taggit.managers.TaggableManager(
                 blank=True,
-                help_text="Tags for this object",
-                through="extras.TaggedItem",
-                to="extras.Tag",
-                verbose_name="Tags",
             ),
         ),
 
+        # ------------------------------------------------------------------
         # Backfill created timestamps on existing rows
+        # ------------------------------------------------------------------
         migrations.RunPython(
-            set_default_created,
+            backfill_created_timestamps,
             reverse_code=migrations.RunPython.noop,
         ),
     ]
