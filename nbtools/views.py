@@ -20,6 +20,11 @@ from .view_scripts.Service_detail import ServiceDetailView
 from .view_scripts.Service_list import ServiceListView
 from .view_scripts.Service_edit import ServiceEditView
 from .view_scripts.delete_views import ApplicationDeleteView, ServiceDeleteView
+from .view_scripts.change_log_views import (
+    ApplicationChangeLogView,
+    ServiceChangeLogView,
+)
+
 
 from django.shortcuts import render
 
