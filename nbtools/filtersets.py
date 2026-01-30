@@ -5,11 +5,14 @@ NetBox Tools plugin - filtersets for Application and Service models.
 
 These filter sets drive both the UI filters (right-hand filter form)
 and REST API filtering for these models.
+
+NetBox version: 4.5.0
 """
 
-from netbox.filtersets import NetBoxModelFilterSet, register_filterset
-from django_filters import CharFilter, ModelMultipleChoiceFilter
 from django.db import models
+from django_filters import CharFilter, ModelMultipleChoiceFilter
+
+from netbox.filtersets import NetBoxModelFilterSet
 
 from tenancy.models import Contact
 from dcim.models import Device
@@ -18,7 +21,6 @@ from virtualization.models import VirtualMachine
 from .models import Application, Service
 
 
-@register_filterset
 class ServiceFilterSet(NetBoxModelFilterSet):
     """
     FilterSet for the Service model.
@@ -57,7 +59,6 @@ class ServiceFilterSet(NetBoxModelFilterSet):
         )
 
 
-@register_filterset
 class ApplicationFilterSet(NetBoxModelFilterSet):
     """
     FilterSet for the Application model.
