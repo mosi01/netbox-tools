@@ -1,17 +1,21 @@
 """
 application_edit.py
-Form-based create/edit view for Application objects in the NetBox Tools plugin.
+Corrected version for NetBox 4.5.x
 
 IMPORTANT:
-NetBox's generic/object_edit.html template requires TWO context variables:
-  - `object`: the actual instance (or None when adding)
-  - `object_type`: the model class (Application)
+NetBox's generic/object_edit.html template requires:
 
-If object_type is not provided, the template will attempt:
+  object      -> an instance of the model (NEVER None)
+  object_type -> the model class
+
+If object is None, the template tries to do:
     object|meta:"verbose_name"
-When object is None, this becomes None._meta and crashes.
+Which becomes None._meta and crashes.
 
-This file fixes that by passing both `object` and `object_type`.
+Therefore, when adding a new Application, we MUST pass:
+    object = Application()   # unsaved instance
+
+This is exactly how NetBox's built-in ObjectEditView behaves.
 """
 
 import logging
@@ -31,27 +35,27 @@ class ApplicationEditView(View):
     template_name = "generic/object_edit.html"
 
     def get_object(self, pk):
-        """Return Application instance or None when creating."""
+        """Fetch object or return UNSAVED instance for object creation."""
         if pk is None:
-            return None
+            return Application()   # <-- critical fix (never return None)
         return get_object_or_404(Application, pk=pk)
 
     def get(self, request, pk=None):
-        """Render form for add/edit."""
+        """Render form."""
         object = self.get_object(pk)
         form = ApplicationForm(instance=object)
 
-        # Determine return URL
-        if object:
+        # Return URL
+        if object.pk:
             return_url = reverse("plugins:nbtools:application_detail", args=[object.pk])
         else:
             return_url = reverse("plugins:nbtools:application_list")
 
-        # REQUIRED BY NETBOX GENERIC EDIT TEMPLATE:
+        # REQUIRED context
         context = {
             "form": form,
-            "object": object,
-            "object_type": Application,  # <-- FIX
+            "object": object,        # instance, even when new
+            "object_type": Application,
             "return_url": return_url,
         }
 
@@ -68,17 +72,16 @@ class ApplicationEditView(View):
                 reverse("plugins:nbtools:application_detail", args=[object.pk])
             )
 
-        # Determine return URL for failed form
-        if object:
+        # Return URL for failed form
+        if object.pk:
             return_url = reverse("plugins:nbtools:application_detail", args=[object.pk])
         else:
             return_url = reverse("plugins:nbtools:application_list")
 
-        # REQUIRED BY NETBOX GENERIC EDIT TEMPLATE:
         context = {
             "form": form,
-            "object": object,
-            "object_type": Application,  # <-- FIX
+            "object": object,        # instance, not None
+            "object_type": Application,
             "return_url": return_url,
         }
 
