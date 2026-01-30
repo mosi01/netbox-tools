@@ -7,132 +7,181 @@
 {% block content %}
 <div class="container">
 
-    <!-- Display Django messages -->
-    {% if messages %}
+  <!-- Display Django messages -->
+  {% if messages %}
     <div>
-        {% for message in messages %}
+      {% for message in messages %}
         <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Configuration Form -->
+  <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_config">
+
+    <!-- SharePoint Config -->
+    <div class="mb-3">
+      <label class="form-label">SharePoint Site URL:</label>
+      <input type="text" name="site_url" class="form-control" value="{{ config.site_url }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Directory (Tenant) ID:</label>
+      <input type="text" name="application_id" class="form-control" value="{{ config.application_id }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Application (Client) ID:</label>
+      <input type="text" name="client_id" class="form-control" value="{{ config.client_id }}">
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Client Secret:</label>
+      <input type="password" name="client_secret" class="form-control" value="{{ config.client_secret }}">
+    </div>
+
+    <!-- Folder Mappings -->
+    <div class="mb-3">
+      <label class="form-label">
+        Folder Mappings
+        <small class="text-muted">
+          (Display name → subfolder after object name, e.g. "Runbook" → "RB")
+        </small>
+      </label>
+      <div id="folder-mappings-container">
+        {% for key, value in config.folder_mappings.items %}
+          <div class="d-flex mb-2">
+            <input type="text"
+                   name="folder_keys[]"
+                   class="form-control me-2"
+                   value="{{ key }}"
+                   placeholder="Display name (e.g., Runbook)">
+            <input type="text"
+                   name="folder_values[]"
+                   class="form-control"
+                   value="{{ value }}"
+                   placeholder="Subfolder (e.g., RB)">
+          </div>
         {% endfor %}
+      </div>
+      <button type="button"
+              class="btn btn-secondary btn-sm"
+              onclick="addFolderMapping()">
+        Add More
+      </button>
     </div>
-    {% endif %}
 
-    <!-- Configuration Form -->
-    <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="save_config">
-
-        <!-- SharePoint Config -->
-        <div class="mb-3">
-            <label class="form-label">SharePoint Site URL:</label>
-            <input type="text" name="site_url" class="form-control" value="{{ config.site_url }}">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Directory (Tenant) ID:</label>
-            <input type="text" name="application_id" class="form-control" value="{{ config.application_id }}">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Application (Client) ID:</label>
-            <input type="text" name="client_id" class="form-control" value="{{ config.client_id }}">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Client Secret:</label>
-            <input type="password" name="client_secret" class="form-control" value="{{ config.client_secret }}">
-        </div>
-
-        <!-- Folder Mappings -->
-        <div class="mb-3">
-            <label class="form-label">Folder Mappings:</label>
-            <div id="folder-mappings-container">
-                {% for key, value in config.folder_mappings.items %}
-                <div class="d-flex mb-2">
-                    <input type="text" name="folder_keys[]" class="form-control me-2" value="{{ key }}" placeholder="Key">
-                    <input type="text" name="folder_values[]" class="form-control" value="{{ value }}" placeholder="Path">
-                </div>
-                {% endfor %}
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="addFolderMapping()">Add More</button>
-        </div>
-
-        <!-- File Type Mappings -->
-        <div class="mb-3">
-            <label class="form-label">File Type Mappings:</label>
-            <div id="file-type-mappings-container">
-                {% for key, value in config.file_type_mappings.items %}
-                <div class="d-flex mb-2">
-                    <input type="text" name="file_type_keys[]" class="form-control me-2" value="{{ key }}" placeholder="Extension (e.g., .docx)">
-                    <input type="text" name="file_type_values[]" class="form-control" value="{{ value }}" placeholder="Description">
-                </div>
-                {% endfor %}
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="addFileTypeMapping()">Add More</button>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Save Configuration</button>
-    </form>
-
-    <!-- Sync Button -->
-    <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="sync">
-        <button type="submit" class="btn btn-success">Sync from SharePoint</button>
-    </form>
-
-    <!-- Cached Documents Table -->
-    <div class="panel panel-default">
-        <div class="panel-heading"><strong>Cached Documents</strong></div>
-        <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-hover table-striped">
-                <thead>
-                    <tr>
-                        <th>Server</th>
-                        <th>Filename</th>
-                        <th>Version</th>
-                        <th>File Type</th>
-                        <th>Type</th>
-                        <th>Category</th>
-                        <th>Exists</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for doc in docs %}
-                    <tr>
-                        <td>{{ doc.server_name }}</td>
-                        <td><a href="{{ doc.sharepoint_url }}" target="_blank">{{ doc.file_name }}</a></td>
-                        <td>{{ doc.version }}</td>
-                        <td>{{ doc.file_type }}</td>
-                        <td>{{ doc.application_name }}</td>
-                        <td>{{ doc.category }}</td>
-                        <td>{{ doc.exists_flag|yesno:"True,False" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <!-- File Type Mappings -->
+    <div class="mb-3">
+      <label class="form-label">File Type Mappings:</label>
+      <div id="file-type-mappings-container">
+        {% for key, value in config.file_type_mappings.items %}
+          <div class="d-flex mb-2">
+            <input type="text"
+                   name="file_type_keys[]"
+                   class="form-control me-2"
+                   value="{{ key }}"
+                   placeholder="Extension (e.g., .docx)">
+            <input type="text"
+                   name="file_type_values[]"
+                   class="form-control"
+                   value="{{ value }}"
+                   placeholder="Description">
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button"
+              class="btn btn-secondary btn-sm"
+              onclick="addFileTypeMapping()">
+        Add More
+      </button>
     </div>
+
+    <button type="submit" class="btn btn-primary">Save Configuration</button>
+  </form>
+
+  <!-- Sync Button -->
+  <form method="post" action="{% url 'plugins:nbtools:documentation_binding' %}" class="mb-4">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="sync">
+    <button type="submit" class="btn btn-success">Sync from SharePoint</button>
+  </form>
+
+  <!-- Cached Documents Table -->
+  <div class="panel panel-default">
+    <div class="panel-heading"><strong>Cached Documents</strong></div>
+    <div class="panel-body" style="max-height: 400px; overflow-y: auto;">
+      <table class="table table-hover table-striped">
+        <thead>
+          <tr>
+            <th>Server</th>
+            <th>Filename</th>
+            <th>Version</th>
+            <th>File Type</th>
+            <th>Type</th>
+            <th>Category</th>
+            <th>Exists</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in docs %}
+            <tr>
+              <td>{{ doc.server_name }}</td>
+              <td>
+                <a href="{{ doc.sharepoint_url }}" target="_blank">
+                  {{ doc.file_name }}
+                </a>
+              </td>
+              <td>{{ doc.version }}</td>
+              <td>{{ doc.file_type }}</td>
+              <td>{{ doc.application_name }}</td>
+              <td>{{ doc.category }}</td>
+              <td>{{ doc.exists_flag|yesno:"True,False" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- JavaScript for dynamic fields -->
 <script>
-function addFolderMapping() {
+  function addFolderMapping() {
     const container = document.getElementById('folder-mappings-container');
     const div = document.createElement('div');
     div.className = 'd-flex mb-2';
     div.innerHTML = `
-        <input type="text" name="folder_keys[]" class="form-control me-2" placeholder="Key">
-        <input type="text" name="folder_values[]" class="form-control" placeholder="Path">
+      <input type="text"
+             name="folder_keys[]"
+             class="form-control me-2"
+             placeholder="Display name (e.g., Runbook)">
+      <input type="text"
+             name="folder_values[]"
+             class="form-control"
+             placeholder="Subfolder (e.g., RB)">
     `;
     container.appendChild(div);
-}
+  }
 
-function addFileTypeMapping() {
+  function addFileTypeMapping() {
     const container = document.getElementById('file-type-mappings-container');
     const div = document.createElement('div');
     div.className = 'd-flex mb-2';
     div.innerHTML = `
-        <input type="text" name="file_type_keys[]" class="form-control me-2" placeholder="Extension (e.g., .docx)">
-        <input type="text" name="file_type_values[]" class="form-control" placeholder="Description">
+      <input type="text"
+             name="file_type_keys[]"
+             class="form-control me-2"
+             placeholder="Extension (e.g., .docx)">
+      <input type="text"
+             name="file_type_values[]"
+             class="form-control"
+             placeholder="Description">
     `;
     container.appendChild(div);
-}
+  }
 </script>
 {% endblock content %}
