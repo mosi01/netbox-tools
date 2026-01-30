@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load helpers %}
+
+{% block title %}
+  Application: {{ object.display_name|default:object.name }}
+{% endblock %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col col-md-12">
+
+    <div class="page-header">
+      <h1>
+        {{ object.display_name|default:object.name }}
+        <span class="text-muted">({{ object.name }})</span>
+      </h1>
+
+      <div class="btn-group float-right" role="group">
+        <a href="{% url 'plugins:nbtools:application_edit' pk=object.pk %}"
+           class="btn btn-primary">
+          <i class="mdi mdi-pencil"></i> Edit
+        </a>
+
+        <a href="{% url 'plugins:nbtools:application_delete' pk=object.pk %}"
+           class="btn btn-danger">
+          <i class="mdi mdi-trash-can"></i> Delete
+        </a>
+
+        <a href="{% url 'plugins:nbtools:application_changelog' pk=object.pk %}"
+           class="btn btn-secondary">
+          <i class="mdi mdi-history"></i> Changelog
+        </a>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="panel panel-default">
+      <div class="panel-heading"><strong>Application Details</strong></div>
+      <table class="table table-hover panel-body">
+        <tr>
+          <th>Name</th>
+          <td>{{ object.name }}</td>
+        </tr>
+        <tr>
+          <th>Display Name</th>
+          <td>{{ object.display_name }}</td>
+        </tr>
+        <tr>
+          <th>Status</th>
+          <td>{{ object.status }}</td>
+        </tr>
+        <tr>
+          <th>Description</th>
+          <td>{{ object.description|linebreaksbr }}</td>
+        </tr>
+        <tr>
+          <th>Service</th>
+          <td>
+            {% if object.service %}
+              <a href="{% url 'plugins:nbtools:service' pk=object.service.pk %}">
+                {{ object.service.display_name|default:object.service.name }}
+              </a>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        <tr>
+          <th>Application Owner</th>
+          <td>{{ object.application_owner }}</td>
+        </tr>
+        <tr>
+          <th>Technical Contact</th>
+          <td>{{ object.technical_contact }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading"><strong>Devices</strong></div>
+      <div class="panel-body">
+        {% if object.devices.all %}
+          <ul>
+            {% for d in object.devices.all %}
+              <li><a href="{{ d.get_absolute_url }}">{{ d }}</a></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No related devices.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-heading"><strong>Virtual Machines</strong></div>
+      <div class="panel-body">
+        {% if object.virtual_machines.all %}
+          <ul>
+            {% for vm in object.virtual_machines.all %}
+              <li><a href="{{ vm.get_absolute_url }}">{{ vm }}</a></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No related VMs.</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
