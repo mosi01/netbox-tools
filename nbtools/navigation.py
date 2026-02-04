@@ -59,6 +59,11 @@ menu = PluginMenu(
                     link='plugins:nbtools:ip_prefix_checker',
                     link_text='IP Prefix Checker',
                     auth_required=True,
+                ),               
+                PluginMenuItem(
+                    link='plugins:nbtools:fortigate_policy_toolset',
+                    link_text='Fortigate Policy Toolset',
+                    auth_required=True,
                 ),
             ),
         ),

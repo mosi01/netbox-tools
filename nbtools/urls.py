@@ -40,6 +40,12 @@ urlpatterns = [
         views.PrefixValidatorView.as_view(),
         name="prefix_validator",
     ),
+    
+    path(
+        "fortigate-policy-toolset/",
+        views.FortigatePolicyToolsetView.as_view(),
+        name="fortigate_policy_toolset",
+    ),
 
     # VM Tool
     path(
