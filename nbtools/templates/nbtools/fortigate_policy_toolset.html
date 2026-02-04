@@ -7,6 +7,9 @@
 {% block content %}
 <div class="container">
 
+  {# ------------------------------------------------------------------ #}
+  {# Error messages                                                     #}
+  {# ------------------------------------------------------------------ #}
   {% if errors %}
   <div class="alert alert-danger">
     <ul class="mb-0">
@@ -17,6 +20,9 @@
   </div>
   {% endif %}
 
+  {# ------------------------------------------------------------------ #}
+  {# Upload JSON                                                        #}
+  {# ------------------------------------------------------------------ #}
   <div class="card mb-4">
     <div class="card-header">Import Fortinet Policy JSON</div>
     <div class="card-body">
@@ -24,7 +30,7 @@
         {% csrf_token %}
         <div class="mb-3">
           <label class="form-label">JSON File</label>
-          <input type="file" name="rules_file" class="form-control" accept=".json">
+          <input type="file" name="rules_file" class="form-control" accept=".json,application/json">
         </div>
         <button type="submit" name="action" value="upload_file" class="btn btn-primary">
           Upload &amp; Load Rules
@@ -37,74 +43,131 @@
   <form method="post">
     {% csrf_token %}
 
+    {# ---------------------------------------------------------------- #}
+    {# Action buttons                                                   #}
+    {# ---------------------------------------------------------------- #}
     <div class="mb-3 d-flex gap-2 flex-wrap">
       <button class="btn btn-secondary" name="action" value="validate">Validate Rules</button>
+      <button class="btn btn-warning" name="action" value="smart_validate">Smart Validation</button>
       <button class="btn btn-outline-primary" name="action" value="export_json">Export JSON</button>
       <button class="btn btn-outline-primary" name="action" value="export_csv">Export CSV</button>
     </div>
 
+    {# ---------------------------------------------------------------- #}
+    {# Summary of highlights (any-any & duplicates)                     #}
+    {# ---------------------------------------------------------------- #}
+    {% if summary.any_any_rules or summary.duplicate_groups %}
     <div class="card mb-4">
-      <div class="card-header">Test Traffic</div>
-      <div class="card-body row g-3">
+      <div class="card-header">
+        Validation Summary
+      </div>
+      <div class="card-body">
 
+        {% if summary.any_any_rules %}
+        <h5>Any-to-any Rules</h5>
+        <ul>
+          {% for r in summary.any_any_rules %}
+          <li>
+            Rule #{{ r.number }} – <strong>{{ r.policy }}</strong>:
+            Source: {{ r.source }} → Destination: {{ r.destination }} (Action: {{ r.action }})
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if summary.duplicate_groups %}
+        <h5>Duplicate Rule Groups</h5>
+        {% for grp in summary.duplicate_groups %}
+          <p class="mb-1">
+            <strong>Group {{ grp.group_id }}:</strong>
+          </p>
+          <ul>
+            {% for r in grp.rules %}
+            <li>
+              Rule #{{ r.number }} – <strong>{{ r.policy }}</strong>:
+              Source: {{ r.source }} → Destination: {{ r.destination }} (Action: {{ r.action }})
+            </li>
+            {% endfor %}
+          </ul>
+        {% endfor %}
+        {% endif %}
+
+      </div>
+    </div>
+    {% endif %}
+
+    {# ---------------------------------------------------------------- #}
+    {# Traffic test                                                     #}
+    {# ---------------------------------------------------------------- #}
+    <div class="card mb-4">
+      <div class="card-header">Test Traffic Against Rules</div>
+      <div class="card-body row g-3">
         <div class="col-md-3">
           <label class="form-label">Source IP</label>
           <input type="text" name="test_src_ip" class="form-control" value="{{ request.POST.test_src_ip }}">
         </div>
-
         <div class="col-md-3">
           <label class="form-label">Destination IP</label>
           <input type="text" name="test_dst_ip" class="form-control" value="{{ request.POST.test_dst_ip }}">
         </div>
-
         <div class="col-md-2">
           <label class="form-label">Protocol</label>
           <select name="test_protocol" class="form-select">
-            <option value="">Select</option>
+            <option value="">Select protocol</option>
             <option value="tcp" {% if request.POST.test_protocol == 'tcp' %}selected{% endif %}>TCP</option>
             <option value="udp" {% if request.POST.test_protocol == 'udp' %}selected{% endif %}>UDP</option>
             <option value="icmp" {% if request.POST.test_protocol == 'icmp' %}selected{% endif %}>ICMP</option>
           </select>
         </div>
-
         <div class="col-md-2">
           <label class="form-label">Port</label>
           <input type="number" name="test_port" class="form-control" value="{{ request.POST.test_port }}">
+          <div class="form-text">Not required for ICMP.</div>
         </div>
-
         <div class="col-md-2">
           <button class="btn btn-success w-100" name="action" value="test">Run Test</button>
         </div>
-
       </div>
     </div>
 
     {% if test_result %}
       {% if test_result.matched %}
         <div class="alert alert-success">
-          <strong>Matched Rule #{{ test_result.index|add:1 }}:</strong>
-          {{ test_result.policy_name }} – Action:
-          <strong>{{ test_result.action }}</strong><br>
+          <strong>Match found:</strong>
+          Rule #{{ test_result.index|add:1 }} ({{ test_result.policy_name }})
+          – Action: <strong>{{ test_result.action }}</strong><br>
           From: {{ test_result.from_zones|join:", " }} |
           To: {{ test_result.to_zones|join:", " }} |
           Services: {{ test_result.services|join:", " }}
         </div>
       {% else %}
         <div class="alert alert-warning">
-          {{ test_result.reason }}
+          <strong>No match:</strong> {{ test_result.reason }}
         </div>
       {% endif %}
     {% endif %}
 
+    {# ---------------------------------------------------------------- #}
+    {# Rules table                                                      #}
+    {# ---------------------------------------------------------------- #}
     <div class="table-responsive">
       <table class="table table-sm table-striped align-middle">
         <thead>
           <tr>
-            <th>#</th><th>Policy</th><th>From</th><th>To</th>
-            <th>Source</th><th>Destination</th>
-            <th>Service</th><th>Action</th><th>NAT</th>
-            <th>Type</th><th>Schedule</th>
-            <th>Security Profiles</th><th>Log</th><th>Bytes</th>
+            <th>#</th>
+            <th>Policy</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Source</th>
+            <th>Destination</th>
+            <th>Service</th>
+            <th>Action</th>
+            <th>NAT</th>
+            <th>Type</th>
+            <th>Schedule</th>
+            <th>Security Profiles</th>
+            <th>Log</th>
+            <th>Bytes</th>
           </tr>
         </thead>
         <tbody>
@@ -140,7 +203,60 @@
       </table>
     </div>
 
+    <p class="text-muted">
+      <small>
+        Note: List fields (From, To, Source, Destination, Service, Schedule, Security Profiles, IP Pool)
+        are edited as comma-separated values. Changes are only kept for this session and are not saved to NetBox.
+      </small>
+    </p>
+
+    {# ---------------------------------------------------------------- #}
+    {# Smart validation result table                                    #}
+    {# ---------------------------------------------------------------- #}
+    {% if smart_groups %}
+    <div class="card mt-4">
+      <div class="card-header">
+        Smart Validation – Sources reaching the same destinations &amp; services via multiple rules
+      </div>
+      <div class="card-body table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th>Destinations</th>
+              <th>Services</th>
+              <th>Action</th>
+              <th>NAT (across rules)</th>
+              <th>From Zones</th>
+              <th>To Zones</th>
+              <th>Rules</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for g in smart_groups %}
+            <tr>
+              <td>{{ g.source }}</td>
+              <td>{{ g.destinations|join:', ' }}</td>
+              <td>{{ g.services|join:', ' }}</td>
+              <td>{{ g.action }}</td>
+              <td>{{ g.nats|join:', ' }}</td>
+              <td>{{ g.from_zones|join:', ' }}</td>
+              <td>{{ g.to_zones|join:', ' }}</td>
+              <td>
+                {% for n in g.rule_numbers %}
+                  #{{ n }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
   </form>
   {% endif %}
+
 </div>
 {% endblock content %}
