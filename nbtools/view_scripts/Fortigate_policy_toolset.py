@@ -6,19 +6,22 @@ Fortigate Policy Toolset for the nbtools NetBox plugin (NetBox 4.5.0).
 Features:
 - Import Fortinet firewall policy rules from a JSON file.
 - Display rules in an editable table (no DB persistence; all in-memory per request).
-- Validate rules:
+- Validate rules ("Validate Rules" button):
   - Highlight "any-to-any" rules.
   - Highlight duplicate rules, using:
       From, To, Source, Destination, Service, Action, NAT
-- Smart validation:
+  - Flag rules that include "all" in Source or Destination.
+  - Flag rules that include "RFC1918-GRP" in Source or Destination.
+- Smart validation ("Smart Validation" button):
   - Same as normal validation, plus a "smart duplicates" table that shows
     per Source entry (IP./Net.) where the same Destinations + Services + Action
     are reachable via multiple rules.
+  - Only shows groups where ALL rules share the SAME From and To zones.
 - Test traffic:
   - Given src IP, dst IP, protocol, port, shows the first matching rule and action.
 - Export:
   - JSON (close to original FortiGate format, with "Security Profiles").
-  - CSV (flat representation).
+  - CSV (semicolon-delimited).
 
 Note:
 - Nothing is stored in NetBox's database; all state is re-derived from the form
@@ -102,7 +105,7 @@ class FortigatePolicyToolsetView(View):
         Handle all POST actions via the "action" field:
 
         - upload_file    : Parse uploaded JSON, show table.
-        - validate       : Run validation (any-any + strict duplicates).
+        - validate       : Run validation (any-any + strict duplicates + all + RFC1918-GRP).
         - smart_validate : Same as validate + build smart duplicates table.
         - test           : Run traffic test.
         - export_json    : Download JSON.
@@ -131,6 +134,8 @@ class FortigatePolicyToolsetView(View):
                     rules, parse_errors = self._parse_rules_from_json(raw)
                     errors.extend(parse_errors)
                     self._ensure_rule_defaults(rules)
+                    # Initialize flags for safe template access
+                    self._annotate_rules_with_validation(rules, validation)
                 except UnicodeDecodeError as exc:
                     logger.exception("Failed to decode uploaded file as UTF-8.")
                     errors.append(f"Failed to decode uploaded file as UTF-8: {exc}")
@@ -344,16 +349,28 @@ class FortigatePolicyToolsetView(View):
     def _build_empty_validation(self):
         """Return an empty validation structure."""
         return {
-            "any_any": [],      # list of rule indexes
-            "duplicates": {},   # rule_idx -> group_id
+            "any_any": [],       # list of rule indexes
+            "duplicates": {},    # rule_idx -> group_id
+            "has_all": [],       # rules with 'all' in src/dst
+            "has_rfc1918": [],   # rules with 'RFC1918-GRP' in src/dst
         }
 
     def _build_empty_summary(self):
         """Return an empty summary structure."""
         return {
-            "any_any_rules": [],     # list of dicts describing any-to-any rules
-            "duplicate_groups": [],  # list of {group_id, rules:[...]}
+            "any_any_rules": [],      # list of dicts describing any-to-any rules
+            "duplicate_groups": [],   # list of {group_id, rules:[...]}
+            "has_all_rules": [],      # list of dicts describing rules with 'all'
+            "rfc1918_rules": [],      # list of dicts describing rules with RFC1918-GRP
         }
+
+    def _list_contains_all(self, values):
+        """Check if list contains the literal 'all' (case-insensitive)."""
+        return any(str(v).strip().lower() == "all" for v in values or [])
+
+    def _list_contains_rfc1918_grp(self, values):
+        """Check if list contains 'RFC1918-GRP' (case-sensitive)."""
+        return any(str(v).strip() == "RFC1918-GRP" for v in values or [])
 
     def _validate_rules(self, rules):
         """
@@ -361,25 +378,39 @@ class FortigatePolicyToolsetView(View):
         - Any-to-any rules.
         - Duplicate rules based on:
           From, To, Source, Destination, Service, Action, NAT.
+        - Rules that include 'all' in Source or Destination.
+        - Rules that include 'RFC1918-GRP' in Source or Destination.
         """
         validation = self._build_empty_validation()
 
-        # Any-to-any
+        # Any-to-any & 'all' and 'RFC1918-GRP' detection
         for idx, r in enumerate(rules):
-            if self._is_any_list(r["Source"]) and self._is_any_list(r["Destination"]):
+            src = r.get("Source", [])
+            dst = r.get("Destination", [])
+
+            # any-any
+            if self._is_any_list(src) and self._is_any_list(dst):
                 validation["any_any"].append(idx)
 
-        # Strict duplicates
+            # has 'all' in source or destination
+            if self._list_contains_all(src) or self._list_contains_all(dst):
+                validation["has_all"].append(idx)
+
+            # has RFC1918-GRP in source or destination
+            if self._list_contains_rfc1918_grp(src) or self._list_contains_rfc1918_grp(dst):
+                validation["has_rfc1918"].append(idx)
+
+        # Strict duplicates (include zones + NAT)
         signatures = {}
         for idx, r in enumerate(rules):
             sig = (
-                tuple(sorted(r["From"])),
-                tuple(sorted(r["To"])),
-                tuple(sorted(r["Source"])),
-                tuple(sorted(r["Destination"])),
-                tuple(sorted(r["Service"])),
-                r["Action"],
-                r["NAT"],
+                tuple(sorted(r.get("From", []))),
+                tuple(sorted(r.get("To", []))),
+                tuple(sorted(r.get("Source", []))),
+                tuple(sorted(r.get("Destination", []))),
+                tuple(sorted(r.get("Service", []))),
+                r.get("Action", ""),
+                r.get("NAT", ""),
             )
             signatures.setdefault(sig, []).append(idx)
 
@@ -396,15 +427,21 @@ class FortigatePolicyToolsetView(View):
         """
         Add highlight flags to rules for use in the template:
 
-        - flag_any_any   : True if rule is any-to-any
-        - flag_dup_group : Group id if rule is part of a duplicate group, else None
+        - flag_any_any      : True if rule is any-to-any
+        - flag_dup_group    : Group id if rule is part of a duplicate group, else None
+        - flag_has_all      : True if rule has 'all' in src/dst
+        - flag_has_rfc1918  : True if rule has 'RFC1918-GRP' in src/dst
         """
         any_any_set = set(validation.get("any_any", []))
         dup_map = validation.get("duplicates", {})
+        has_all_set = set(validation.get("has_all", []))
+        has_rfc1918_set = set(validation.get("has_rfc1918", []))
 
         for idx, r in enumerate(rules):
             r["flag_any_any"] = idx in any_any_set
             r["flag_dup_group"] = dup_map.get(idx)
+            r["flag_has_all"] = idx in has_all_set
+            r["flag_has_rfc1918"] = idx in has_rfc1918_set
 
     def _build_summary(self, validation, rules):
         """
@@ -412,26 +449,29 @@ class FortigatePolicyToolsetView(View):
 
         - Any-to-any rules (with basic info).
         - Duplicate groups (group id + rule info).
+        - Rules with 'all' in source/destination.
+        - Rules with 'RFC1918-GRP' in source/destination.
         """
         summary = self._build_empty_summary()
+
+        # Helper to build a short info dict for summary lists
+        def _rule_info(idx):
+            r = rules[idx]
+            return {
+                "index": idx,
+                "number": idx + 1,
+                "policy": r.get("Policy", f"Rule #{idx+1}"),
+                "source": ", ".join(r.get("Source", [])),
+                "destination": ", ".join(r.get("Destination", [])),
+                "action": r.get("Action", ""),
+            }
 
         # Any-to-any summary
         for idx in validation.get("any_any", []):
             if 0 <= idx < len(rules):
-                r = rules[idx]
-                summary["any_any_rules"].append(
-                    {
-                        "index": idx,
-                        "number": idx + 1,
-                        "policy": r.get("Policy", f"Rule #{idx+1}"),
-                        "source": ", ".join(r.get("Source", [])),
-                        "destination": ", ".join(r.get("Destination", [])),
-                        "action": r.get("Action", ""),
-                    }
-                )
+                summary["any_any_rules"].append(_rule_info(idx))
 
         # Duplicate groups summary
-        # Build group_id -> list of rule indices
         groups = {}
         for idx, group_id in validation.get("duplicates", {}).items():
             groups.setdefault(group_id, []).append(idx)
@@ -440,24 +480,21 @@ class FortigatePolicyToolsetView(View):
             rule_infos = []
             for idx in sorted(groups[group_id]):
                 if 0 <= idx < len(rules):
-                    r = rules[idx]
-                    rule_infos.append(
-                        {
-                            "index": idx,
-                            "number": idx + 1,
-                            "policy": r.get("Policy", f"Rule #{idx+1}"),
-                            "source": ", ".join(r.get("Source", [])),
-                            "destination": ", ".join(r.get("Destination", [])),
-                            "action": r.get("Action", ""),
-                        }
-                    )
+                    rule_infos.append(_rule_info(idx))
             if rule_infos:
                 summary["duplicate_groups"].append(
-                    {
-                        "group_id": group_id,
-                        "rules": rule_infos,
-                    }
+                    {"group_id": group_id, "rules": rule_infos}
                 )
+
+        # Rules with 'all'
+        for idx in validation.get("has_all", []):
+            if 0 <= idx < len(rules):
+                summary["has_all_rules"].append(_rule_info(idx))
+
+        # Rules with RFC1918-GRP
+        for idx in validation.get("has_rfc1918", []):
+            if 0 <= idx < len(rules):
+                summary["rfc1918_rules"].append(_rule_info(idx))
 
         return summary
 
@@ -472,15 +509,19 @@ class FortigatePolicyToolsetView(View):
         Group key:
             (source_entry, sorted(Destination), sorted(Service), Action)
 
+        Additional constraint:
+        - All rules in the group must share the SAME From and To zones.
+          If From or To differ across rules, the group is discarded.
+
         Returns:
             list of groups:
             [
               {
-                "source": "Net.10.0.104.3",
+                "source": "Net.10.0.104.0/24",
                 "destinations": [...],
                 "services": [...],
                 "action": "ACCEPT",
-                "rule_numbers": [1, 7, ...],
+                "rule_numbers": [94, 95],
                 "rule_policies": [...],
                 "nats": [...],
                 "from_zones": [...],
@@ -518,11 +559,15 @@ class FortigatePolicyToolsetView(View):
                 g["from_zones"].update(r.get("From", []))
                 g["to_zones"].update(r.get("To", []))
 
-        # Keep only groups where the same (source, dests, services, action)
-        # appears in more than one rule
         smart_groups = []
         for g in groups.values():
+            # Need more than one rule
             if len(g["rule_indices"]) <= 1:
+                continue
+
+            # NEW: require that all rules share the SAME From and To zones
+            if len(g["from_zones"]) != 1 or len(g["to_zones"]) != 1:
+                # Skip this group; scopes/zones differ
                 continue
 
             # Convert sets to sorted lists and add human-friendly rule numbers
@@ -547,7 +592,7 @@ class FortigatePolicyToolsetView(View):
         """
         if not values:
             return False
-        low = [v.lower() for v in values]
+        low = [str(v).lower() for v in values]
         if "all" in low:
             return True
         return any(v.startswith("net.0.0.0.0/0") for v in low)
@@ -637,7 +682,7 @@ class FortigatePolicyToolsetView(View):
             return False
 
         for entry in entries:
-            e = entry.strip()
+            e = str(entry).strip()
             if e.lower() == "all":
                 return True
 
@@ -673,7 +718,7 @@ class FortigatePolicyToolsetView(View):
             return True
 
         for s in services:
-            up = s.strip().upper()
+            up = str(s).strip().upper()
 
             if up == "ALL":
                 return True
@@ -735,6 +780,8 @@ class FortigatePolicyToolsetView(View):
             rr = dict(r)
             rr.pop("flag_any_any", None)
             rr.pop("flag_dup_group", None)
+            rr.pop("flag_has_all", None)
+            rr.pop("flag_has_rfc1918", None)
 
             if "Security_Profiles" in rr:
                 rr["Security Profiles"] = rr.pop("Security_Profiles")
@@ -751,9 +798,10 @@ class FortigatePolicyToolsetView(View):
         Return HttpResponse for CSV export.
 
         List fields are joined with ", " in each cell.
+        CSV is semicolon-delimited.
         """
         sio = StringIO()
-        writer = csv.writer(sio)
+        writer = csv.writer(sio, delimiter=';')
 
         header = [
             "Policy",
@@ -777,6 +825,8 @@ class FortigatePolicyToolsetView(View):
             # Drop internal flags if present
             r.pop("flag_any_any", None)
             r.pop("flag_dup_group", None)
+            r.pop("flag_has_all", None)
+            r.pop("flag_has_rfc1918", None)
 
             writer.writerow(
                 [

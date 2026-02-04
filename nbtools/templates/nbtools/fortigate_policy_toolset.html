@@ -54,9 +54,9 @@
     </div>
 
     {# ---------------------------------------------------------------- #}
-    {# Summary of highlights (any-any & duplicates)                     #}
+    {# Summary of highlights (any-any, duplicates, 'all', RFC1918-GRP)  #}
     {# ---------------------------------------------------------------- #}
-    {% if summary.any_any_rules or summary.duplicate_groups %}
+    {% if summary.any_any_rules or summary.duplicate_groups or summary.has_all_rules or summary.rfc1918_rules %}
     <div class="card mb-4">
       <div class="card-header">
         Validation Summary
@@ -90,6 +90,30 @@
             {% endfor %}
           </ul>
         {% endfor %}
+        {% endif %}
+
+        {% if summary.has_all_rules %}
+        <h5>Rules with "all" in Source or Destination</h5>
+        <ul>
+          {% for r in summary.has_all_rules %}
+          <li>
+            Rule #{{ r.number }} – <strong>{{ r.policy }}</strong>:
+            Source: {{ r.source }} → Destination: {{ r.destination }} (Action: {{ r.action }})
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if summary.rfc1918_rules %}
+        <h5>Rules with RFC1918-GRP in Source or Destination</h5>
+        <ul>
+          {% for r in summary.rfc1918_rules %}
+          <li>
+            Rule #{{ r.number }} – <strong>{{ r.policy }}</strong>:
+            Source: {{ r.source }} → Destination: {{ r.destination }} (Action: {{ r.action }})
+          </li>
+          {% endfor %}
+        </ul>
         {% endif %}
 
       </div>
@@ -217,6 +241,7 @@
     <div class="card mt-4">
       <div class="card-header">
         Smart Validation – Sources reaching the same destinations &amp; services via multiple rules
+        (only shown when From and To zones are identical across the rules)
       </div>
       <div class="card-body table-responsive">
         <table class="table table-sm table-striped">
