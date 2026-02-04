@@ -264,12 +264,17 @@ class FortigatePolicyToolsetView(View):
         # DUPLICATES
         sigs = {}
         for idx, r in enumerate(rules):
+            
             sig = (
-                tuple(sorted(r["Source"])),
-                tuple(sorted(r["Destination"])),
-                tuple(sorted(r["Service"])),
-                r["Action"],
-            )
+                    tuple(sorted(r["From"])),
+                    tuple(sorted(r["To"])),
+                    tuple(sorted(r["Source"])),
+                    tuple(sorted(r["Destination"])),
+                    tuple(sorted(r["Service"])),
+                    r["Action"],
+                    r["NAT"],
+                )
+
             sigs.setdefault(sig, []).append(idx)
 
         gid = 1
