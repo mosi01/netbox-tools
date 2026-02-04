@@ -145,132 +145,74 @@
           </thead>
           <tbody>
             {% for rule in rules %}
-              {% with idx=forloop.counter0 %}
-              {% comment %}
-                Determine validation flags for this row
-              {% endcomment %}
-              {% with is_any_any=idx in validation.any_any %}
-              {% with dup_group=validation.duplicates.idx %}
-              <tr
-                {% if idx in validation.any_any %}
-                  class="table-warning"
-                  title="Any-to-any rule"
-                {% elif validation.duplicates.idx %}
-                  class="table-danger"
-                  title="Duplicate rule (group {{ validation.duplicates.idx }})"
-                {% endif %}
-              >
-                <td>{{ forloop.counter }}</td>
+                {% with idx=forloop.counter0 %}
+                <tr
+                    {% if idx in validation.any_any %}
+                    class="table-warning"
+                    title="Any-to-any rule"
+                    {% elif validation.duplicates.idx %}
+                    class="table-danger"
+                    title="Duplicate rule"
+                    {% endif %}
+                >
+                    <td>{{ forloop.counter }}</td>
 
-                <!-- Policy (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Policy"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Policy }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Policy"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Policy }}"></td>
 
-                <!-- From (list) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-From"
-                         class="form-control form-control-sm"
-                         value="{{ rule.From|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-From"
+                            class="form-control form-control-sm"
+                            value="{{ rule.From|join:", " }}"></td>
 
-                <!-- To (list) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-To"
-                         class="form-control form-control-sm"
-                         value="{{ rule.To|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-To"
+                            class="form-control form-control-sm"
+                            value="{{ rule.To|join:", " }}"></td>
 
-                <!-- Source (list) -->
-                <td style="min-width: 200px;">
-                  <input type="text"
-                         name="rule-{{ idx }}-Source"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Source|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Source"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Source|join:", " }}"></td>
 
-                <!-- Destination (list) -->
-                <td style="min-width: 200px;">
-                  <input type="text"
-                         name="rule-{{ idx }}-Destination"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Destination|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Destination"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Destination|join:", " }}"></td>
 
-                <!-- Service (list) -->
-                <td style="min-width: 150px;">
-                  <input type="text"
-                         name="rule-{{ idx }}-Service"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Service|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Service"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Service|join:", " }}"></td>
 
-                <!-- Action (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Action"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Action }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Action"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Action }}"></td>
 
-                <!-- NAT (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-NAT"
-                         class="form-control form-control-sm"
-                         value="{{ rule.NAT }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-NAT"
+                            class="form-control form-control-sm"
+                            value="{{ rule.NAT }}"></td>
 
-                <!-- Type (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Type"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Type }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Type"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Type }}"></td>
 
-                <!-- Schedule (list) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Schedule"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Schedule|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Schedule"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Schedule|join:", " }}"></td>
 
-                <!-- Security Profiles (list) -->
-                <td style="min-width: 160px;">
-                  <input type="text"
-                         name="rule-{{ idx }}-Security Profiles"
-                         class="form-control form-control-sm"
-                         value="{{ rule."Security Profiles"|join:', ' }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Security Profiles"
+                            class="form-control form-control-sm"
+                            value="{{ rule."Security Profiles"|join:", " }}"></td>
 
-                <!-- Log (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Log"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Log }}">
-                </td>
+                    <td><input type="text" name="rule-{{ idx }}-Log"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Log }}"></td>
 
-                <!-- Bytes (string) -->
-                <td>
-                  <input type="text"
-                         name="rule-{{ idx }}-Bytes"
-                         class="form-control form-control-sm"
-                         value="{{ rule.Bytes }}">
-                </td>
-              </tr>
-              {% endwith %}
-              {% endwith %}
-              {% endwith %}
+                    <td><input type="text" name="rule-{{ idx }}-Bytes"
+                            class="form-control form-control-sm"
+                            value="{{ rule.Bytes }}"></td>
+
+                </tr>
+                {% endwith %}
             {% endfor %}
-          </tbody>
+            </tbody>
         </table>
       </div>
 
