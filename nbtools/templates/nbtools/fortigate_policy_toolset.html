@@ -1,47 +1,32 @@
 {% extends 'base/layout.html' %}
 
 {% block header %}
-  <h1>Fortigate Policy Toolset</h1>
+<h1>Fortigate Policy Toolset</h1>
 {% endblock header %}
 
 {% block content %}
 <div class="container">
 
-  {# ------------------------------------------------------------------ #}
-  {# Error messages                                                     #}
-  {# ------------------------------------------------------------------ #}
   {% if errors %}
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        {% for err in errors %}
-          <li>{{ err }}</li>
-        {% endfor %}
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      {% for err in errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+  </div>
   {% endif %}
 
-  {# ------------------------------------------------------------------ #}
-  {# Upload JSON file                                                   #}
-  {# ------------------------------------------------------------------ #}
   <div class="card mb-4">
-    <div class="card-header">
-      Import Fortinet Policy JSON
-    </div>
+    <div class="card-header">Import Fortinet Policy JSON</div>
     <div class="card-body">
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="mb-3">
-          <label for="rules_file" class="form-label">JSON file</label>
-          <input type="file"
-                 name="rules_file"
-                 id="rules_file"
-                 class="form-control"
-                 accept=".json,application/json">
+          <label class="form-label">JSON File</label>
+          <input type="file" name="rules_file" class="form-control" accept=".json">
         </div>
-        <button type="submit"
-                name="action"
-                value="upload_file"
-                class="btn btn-primary">
+        <button type="submit" name="action" value="upload_file" class="btn btn-primary">
           Upload &amp; Load Rules
         </button>
       </form>
@@ -49,276 +34,113 @@
   </div>
 
   {% if rules %}
-    {# -------------------------------------------------------------- #}
-    {# Main form: validate, test, export                              #}
-    {# -------------------------------------------------------------- #}
-    <form method="post">
-      {% csrf_token %}
+  <form method="post">
+    {% csrf_token %}
 
-      {# Action buttons #}
-      <div class="mb-3 d-flex flex-wrap gap-2">
-        <button type="submit"
-                name="action"
-                value="validate"
-                class="btn btn-secondary">
-          Validate Rules
-        </button>
+    <div class="mb-3 d-flex gap-2 flex-wrap">
+      <button class="btn btn-secondary" name="action" value="validate">Validate Rules</button>
+      <button class="btn btn-outline-primary" name="action" value="export_json">Export JSON</button>
+      <button class="btn btn-outline-primary" name="action" value="export_csv">Export CSV</button>
+    </div>
 
-        <button type="submit"
-                name="action"
-                value="export_json"
-                class="btn btn-outline-primary">
-          Export as JSON
-        </button>
+    <div class="card mb-4">
+      <div class="card-header">Test Traffic</div>
+      <div class="card-body row g-3">
 
-        <button type="submit"
-                name="action"
-                value="export_csv"
-                class="btn btn-outline-primary">
-          Export as CSV
-        </button>
-      </div>
-
-      {# ------------------------------------------------------------ #}
-      {# Test traffic                                                 #}
-      {# ------------------------------------------------------------ #}
-      <div class="card mb-4">
-        <div class="card-header">
-          Test Traffic Against Rules
+        <div class="col-md-3">
+          <label class="form-label">Source IP</label>
+          <input type="text" name="test_src_ip" class="form-control" value="{{ request.POST.test_src_ip }}">
         </div>
-        <div class="card-body row g-3 align-items-end">
-          <div class="col-md-3">
-            <label for="test_src_ip" class="form-label">Source IP</label>
-            <input type="text"
-                   name="test_src_ip"
-                   id="test_src_ip"
-                   class="form-control"
-                   placeholder="e.g. 10.0.40.10"
-                   value="{{ request.POST.test_src_ip }}">
-          </div>
-          <div class="col-md-3">
-            <label for="test_dst_ip" class="form-label">Destination IP</label>
-            <input type="text"
-                   name="test_dst_ip"
-                   id="test_dst_ip"
-                   class="form-control"
-                   placeholder="e.g. 192.168.1.10"
-                   value="{{ request.POST.test_dst_ip }}">
-          </div>
-          <div class="col-md-2">
-            <label for="test_protocol" class="form-label">Protocol</label>
-            <select name="test_protocol"
-                    id="test_protocol"
-                    class="form-select">
-              <option value="">Select protocol</option>
-              <option value="tcp" {% if request.POST.test_protocol == "tcp" %}selected{% endif %}>TCP</option>
-              <option value="udp" {% if request.POST.test_protocol == "udp" %}selected{% endif %}>UDP</option>
-              <option value="icmp" {% if request.POST.test_protocol == "icmp" %}selected{% endif %}>ICMP</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label for="test_port" class="form-label">Port</label>
-            <input type="number"
-                   name="test_port"
-                   id="test_port"
-                   class="form-control"
-                   placeholder="e.g. 443"
-                   value="{{ request.POST.test_port }}">
-            <div class="form-text">
-              Not required for ICMP.
-            </div>
-          </div>
-          <div class="col-md-2">
-            <button type="submit"
-                    name="action"
-                    value="test"
-                    class="btn btn-success w-100">
-              Run Test
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {# ------------------------------------------------------------ #}
-      {# Test result                                                   #}
-      {# ------------------------------------------------------------ #}
-      {% if test_result %}
-        {% if test_result.matched %}
-          <div class="alert alert-success">
-            <strong>Match found:</strong>
-            Rule #{{ test_result.index|add:1 }}
-            ({{ test_result.policy_name }})
-            &mdash;
-            Action: <strong>{{ test_result.action }}</strong><br>
-            From: {{ test_result.from_zones|join:", " }} |
-            To: {{ test_result.to_zones|join:", " }} |
-            Services: {{ test_result.services|join:", " }}
-          </div>
-        {% else %}
-          <div class="alert alert-warning">
-            <strong>No match:</strong> {{ test_result.reason }}
-          </div>
-        {% endif %}
+        <div class="col-md-3">
+          <label class="form-label">Destination IP</label>
+          <input type="text" name="test_dst_ip" class="form-control" value="{{ request.POST.test_dst_ip }}">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Protocol</label>
+          <select name="test_protocol" class="form-select">
+            <option value="">Select</option>
+            <option value="tcp" {% if request.POST.test_protocol == 'tcp' %}selected{% endif %}>TCP</option>
+            <option value="udp" {% if request.POST.test_protocol == 'udp' %}selected{% endif %}>UDP</option>
+            <option value="icmp" {% if request.POST.test_protocol == 'icmp' %}selected{% endif %}>ICMP</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label">Port</label>
+          <input type="number" name="test_port" class="form-control" value="{{ request.POST.test_port }}">
+        </div>
+
+        <div class="col-md-2">
+          <button class="btn btn-success w-100" name="action" value="test">Run Test</button>
+        </div>
+
+      </div>
+    </div>
+
+    {% if test_result %}
+      {% if test_result.matched %}
+        <div class="alert alert-success">
+          <strong>Matched Rule #{{ test_result.index|add:1 }}:</strong>
+          {{ test_result.policy_name }} – Action:
+          <strong>{{ test_result.action }}</strong><br>
+          From: {{ test_result.from_zones|join:", " }} |
+          To: {{ test_result.to_zones|join:", " }} |
+          Services: {{ test_result.services|join:", " }}
+        </div>
+      {% else %}
+        <div class="alert alert-warning">
+          {{ test_result.reason }}
+        </div>
       {% endif %}
+    {% endif %}
 
-      {# ------------------------------------------------------------ #}
-      {# Rules table                                                   #}
-      {# ------------------------------------------------------------ #}
-      <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Policy</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Source</th>
-              <th>Destination</th>
-              <th>Service</th>
-              <th>Action</th>
-              <th>NAT</th>
-              <th>Type</th>
-              <th>Schedule</th>
-              <th>Security Profiles</th>
-              <th>Log</th>
-              <th>Bytes</th>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>#</th><th>Policy</th><th>From</th><th>To</th>
+            <th>Source</th><th>Destination</th>
+            <th>Service</th><th>Action</th><th>NAT</th>
+            <th>Type</th><th>Schedule</th>
+            <th>Security Profiles</th><th>Log</th><th>Bytes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rule in rules %}
+            {% with idx=forloop.counter0 %}
+            <tr
+              {% if rule.flag_any_any %}
+                class="table-warning" title="Any-to-any rule"
+              {% elif rule.flag_dup_group %}
+                class="table-danger" title="Duplicate rule (group {{ rule.flag_dup_group }})"
+              {% endif %}
+            >
+              <td>{{ forloop.counter }}</td>
+
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Policy" value="{{ rule.Policy }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-From" value="{{ rule.From|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-To" value="{{ rule.To|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Source" value="{{ rule.Source|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Destination" value="{{ rule.Destination|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Service" value="{{ rule.Service|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Action" value="{{ rule.Action }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-NAT" value="{{ rule.NAT }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Type" value="{{ rule.Type }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Schedule" value="{{ rule.Schedule|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Security_Profiles" value="{{ rule.Security_Profiles|join:', ' }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Log" value="{{ rule.Log }}"></td>
+              <td><input class="form-control form-control-sm" name="rule-{{ idx }}-Bytes" value="{{ rule.Bytes }}"></td>
+
             </tr>
-          </thead>
-          <tbody>
-            {% for rule in rules %}
-              {% with idx=forloop.counter0 %}
-                <tr
-                  {% if rule._any_any %}
-                    class="table-warning"
-                    title="Any-to-any rule"
-                  {% elif rule._dup_group %}
-                    class="table-danger"
-                    title="Duplicate rule (group {{ rule._dup_group }})"
-                  {% endif %}
-                >
-                  <td>{{ forloop.counter }}</td>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
-                  {# Policy (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Policy"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Policy }}">
-                  </td>
-
-                  {# From (list) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-From"
-                           class="form-control form-control-sm"
-                           value="{{ rule.From|join:', ' }}">
-                  </td>
-
-                  {# To (list) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-To"
-                           class="form-control form-control-sm"
-                           value="{{ rule.To|join:', ' }}">
-                  </td>
-
-                  {# Source (list) #}
-                  <td style="min-width: 200px;">
-                    <input type="text"
-                           name="rule-{{ idx }}-Source"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Source|join:', ' }}">
-                  </td>
-
-                  {# Destination (list) #}
-                  <td style="min-width: 200px;">
-                    <input type="text"
-                           name="rule-{{ idx }}-Destination"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Destination|join:', ' }}">
-                  </td>
-
-                  {# Service (list) #}
-                  <td style="min-width: 150px;">
-                    <input type="text"
-                           name="rule-{{ idx }}-Service"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Service|join:', ' }}">
-                  </td>
-
-                  {# Action (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Action"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Action }}">
-                  </td>
-
-                  {# NAT (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-NAT"
-                           class="form-control form-control-sm"
-                           value="{{ rule.NAT }}">
-                  </td>
-
-                  {# Type (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Type"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Type }}">
-                  </td>
-
-                  {# Schedule (list) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Schedule"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Schedule|join:', ' }}">
-                  </td>
-
-                  {# Security Profiles (list, normalized key Security_Profiles) #}
-                  <td style="min-width: 160px;">
-                    <input type="text"
-                           name="rule-{{ idx }}-Security_Profiles"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Security_Profiles|join:', ' }}">
-                  </td>
-
-                  {# Log (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Log"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Log }}">
-                  </td>
-
-                  {# Bytes (string) #}
-                  <td>
-                    <input type="text"
-                           name="rule-{{ idx }}-Bytes"
-                           class="form-control form-control-sm"
-                           value="{{ rule.Bytes }}">
-                  </td>
-
-                </tr>
-              {% endwith %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <p class="text-muted">
-        <small>
-          Note: List fields (From, To, Source, Destination, Service, Schedule,
-          Security Profiles, IP Pool) are edited as comma-separated values.
-          Changes are only kept in this session and are not saved to NetBox.
-        </small>
-      </p>
-
-    </form>
+  </form>
   {% endif %}
-
 </div>
 {% endblock content %}

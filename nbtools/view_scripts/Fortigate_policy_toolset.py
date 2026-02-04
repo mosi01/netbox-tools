@@ -1,22 +1,8 @@
 """
 fortigate_policy_toolset.py
 
-View for the "Fortigate Policy Toolset" in the nbtools plugin.
-
-Features:
-- Import Fortinet firewall policy rules from a JSON file.
-- Display rules in an editable table (per-request only; no DB storage).
-- Validate rules:
-  - Highlight "any-to-any" rules.
-  - Highlight duplicate rules (same Source, Destination, Service, and Action).
-- Test traffic:
-  - Given src IP, dst IP, protocol and port, find the first matching rule and its action.
-- Export:
-  - JSON (close to original format, including "Security Profiles").
-  - CSV.
-
-All state is kept in memory for the duration of the request. Nothing is saved
-in NetBox's database or plugin models.
+Updated: Replaced _any_any and _dup_group with flag_any_any and flag_dup_group
+to comply with Django template restrictions preventing underscore-prefixed access.
 """
 
 import json
@@ -36,27 +22,9 @@ logger = logging.getLogger("nbtools")
 
 @method_decorator(csrf_exempt, name="dispatch")
 class FortigatePolicyToolsetView(View):
-    """
-    Main view for the Fortigate Policy Toolset.
-
-    - GET:
-      Render an empty page with upload form.
-    - POST:
-      Handle actions:
-        * upload_file  -> parse JSON and show editable table
-        * validate     -> validate rules and highlight issues
-        * test         -> test traffic against rules
-        * export_json  -> download current rules as JSON
-        * export_csv   -> download current rules as CSV
-
-    Note: Rules are NOT persisted in the database. Each POST rebuilds
-    the rules from the submitted form fields.
-    """
 
     template_name = "nbtools/fortigate_policy_toolset.html"
 
-    # Keys that should be treated as list fields. Include both the original FortiGate
-    # name ("Security Profiles") and our normalized key ("Security_Profiles").
     LIST_FIELDS = {
         "From",
         "To",
@@ -69,7 +37,6 @@ class FortigatePolicyToolsetView(View):
         "Security_Profiles",
     }
 
-    # These fields are scalars (plain strings) for display/export purposes.
     SCALAR_FIELDS = [
         "Policy",
         "Action",
@@ -79,8 +46,6 @@ class FortigatePolicyToolsetView(View):
         "Bytes",
     ]
 
-    # Service port mapping for common named services (best-effort approximation).
-    # This is not an exhaustive FortiGate service mapping.
     SERVICE_PORT_MAP = {
         "HTTP": ("tcp", 80),
         "HTTPS": ("tcp", 443),
@@ -92,598 +57,389 @@ class FortigatePolicyToolsetView(View):
         "SNMP": ("udp", 161),
     }
 
-    # -------------------------------------------------------------
-    # HTTP handlers
-    # -------------------------------------------------------------
-
+    # -----------------------------------------------------------
+    # GET
+    # -----------------------------------------------------------
     def get(self, request):
-        """
-        Initial GET request: show empty tool with just the upload form.
-        """
-        context = {
-            "rules": [],
-            "errors": [],
-            "validation": {},
-            "test_result": None,
-        }
-        return render(request, self.template_name, context)
+        return render(
+            request,
+            self.template_name,
+            {"rules": [], "errors": [], "validation": {}, "test_result": None},
+        )
 
+    # -----------------------------------------------------------
+    # POST
+    # -----------------------------------------------------------
     def post(self, request):
-        """
-        Handle all POST actions.
-
-        The "action" field in POST determines what happens:
-        - upload_file  : handle JSON upload
-        - validate     : validate rules
-        - test         : test traffic against rules
-        - export_json  : export current rules as JSON
-        - export_csv   : export current rules as CSV
-        """
         action = request.POST.get("action")
         errors = []
-        rules = []
 
-        # ---------------------------------------------
-        # 1) Handle file upload
-        # ---------------------------------------------
+        # ---------------------------
+        # UPLOAD JSON
+        # ---------------------------
         if action == "upload_file":
             uploaded_file = request.FILES.get("rules_file")
+            rules = []
             if not uploaded_file:
                 errors.append("No JSON file provided.")
             else:
                 try:
-                    file_content = uploaded_file.read().decode("utf-8")
-                    rules, parse_errors = self._parse_rules_from_json(file_content)
+                    data = uploaded_file.read().decode("utf-8")
+                    rules, parse_errors = self._parse_rules_from_json(data)
                     errors.extend(parse_errors)
                     self._ensure_rule_defaults(rules)
-                except UnicodeDecodeError as exc:
-                    logger.exception("Failed to decode uploaded file as UTF-8")
-                    errors.append(f"Failed to decode uploaded file as UTF-8: {exc}")
-                except Exception as exc:  # Safety net for unexpected errors
-                    logger.exception("Unexpected error while processing upload")
-                    errors.append(f"Unexpected error while processing upload: {exc}")
+                except Exception as exc:
+                    errors.append(f"Failed to process uploaded file: {exc}")
 
-            context = {
-                "rules": rules,
-                "errors": errors,
-                "validation": self._build_empty_validation(),
-                "test_result": None,
-            }
-            return render(request, self.template_name, context)
+            return render(
+                request,
+                self.template_name,
+                {
+                    "rules": rules,
+                    "errors": errors,
+                    "validation": {},
+                    "test_result": None,
+                },
+            )
 
-        # ---------------------------------------------
-        # 2) Rebuild rules from the form for all other actions
-        # ---------------------------------------------
+        # ---------------------------
+        # REBUILD RULES FROM POST
+        # ---------------------------
         rules, rebuild_errors = self._rebuild_rules_from_post(request.POST)
         errors.extend(rebuild_errors)
         self._ensure_rule_defaults(rules)
 
-        # If we still have no rules and the action is not an export, bail out.
-        if not rules and action not in {"export_json", "export_csv"}:
-            errors.append("No rules loaded. Please upload a JSON file first.")
-            context = {
-                "rules": [],
-                "errors": errors,
-                "validation": {},
-                "test_result": None,
-            }
-            return render(request, self.template_name, context)
+        if not rules and action not in ("export_json", "export_csv"):
+            errors.append("No rules loaded. Upload a JSON file first.")
+            return render(
+                request,
+                self.template_name,
+                {"rules": [], "errors": errors, "validation": {}, "test_result": None},
+            )
 
-        # ---------------------------------------------
-        # 3) Handle export actions early (no need for validation/test)
-        # ---------------------------------------------
+        # ---------------------------
+        # EXPORT JSON / CSV
+        # ---------------------------
         if action == "export_json":
             return self._export_json_response(rules)
 
         if action == "export_csv":
             return self._export_csv_response(rules)
 
-        # ---------------------------------------------
-        # 4) Validation
-        # ---------------------------------------------
-        validation = self._build_empty_validation()
+        # ---------------------------
+        # VALIDATE
+        # ---------------------------
+        validation = {}
         if action == "validate":
             validation = self._validate_rules(rules)
-            # Annotate rules so the template can highlight rows
             self._annotate_rules_with_validation(rules, validation)
 
-        # ---------------------------------------------
-        # 5) Test traffic
-        # ---------------------------------------------
+        # ---------------------------
+        # TEST
+        # ---------------------------
         test_result = None
         if action == "test":
-            # We can validate and annotate as well so the table still shows issues
             validation = self._validate_rules(rules)
             self._annotate_rules_with_validation(rules, validation)
             test_result = self._test_traffic(request.POST, rules, errors)
 
-        # ---------------------------------------------
-        # 6) Default re-render with current rules
-        # ---------------------------------------------
-        context = {
-            "rules": rules,
-            "errors": errors,
-            "validation": validation,
-            "test_result": test_result,
-        }
-        return render(request, self.template_name, context)
+        # ---------------------------
+        # RENDER RESULT
+        # ---------------------------
+        return render(
+            request,
+            self.template_name,
+            {
+                "rules": rules,
+                "errors": errors,
+                "validation": validation,
+                "test_result": test_result,
+            },
+        )
 
-    # -------------------------------------------------------------
-    # Parsing / reconstruction helpers
-    # -------------------------------------------------------------
-
-    def _parse_rules_from_json(self, raw_json: str):
-        """
-        Parse rules from a JSON string.
-
-        Expected format:
-            [
-              { "Policy": "...", "From": [...], "To": [...], ... },
-              ...
-            ]
-
-        Returns:
-            (list_of_rules, list_of_errors)
-        """
+    # =======================================================================
+    # PARSING
+    # =======================================================================
+    def _parse_rules_from_json(self, raw_json):
         errors = []
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as exc:
-            errors.append(f"Invalid JSON: {exc}")
-            return [], errors
+            return [], [f"Invalid JSON: {exc}"]
 
         if not isinstance(data, list):
-            errors.append(
-                "JSON root must be a list of policy objects "
-                "(e.g. [ { ... }, { ... } ])."
-            )
-            return [], errors
+            return [], ["JSON root must be a list"]
 
         rules = []
-        for idx, item in enumerate(data, start=1):
+        for idx, item in enumerate(data, 1):
             if not isinstance(item, dict):
-                errors.append(f"Entry #{idx} is not an object and was skipped.")
+                errors.append(f"Rule #{idx} is not an object.")
                 continue
 
-            # Ensure known list fields are lists
             for key in self.LIST_FIELDS:
                 if key in item and not isinstance(item[key], list):
-                    # Automatic simple fix: wrap scalar in list
                     item[key] = [item[key]]
 
-            # Normalize special keys and enforce internal naming
             item = self._normalize_keys(item)
-
-            # Warn about obviously missing core fields (but still include rule)
-            for required in ("Policy", "From", "To", "Source", "Destination", "Action"):
-                if required not in item:
-                    errors.append(
-                        f"Rule #{idx} is missing required field '{required}'. "
-                        "It will still be loaded but may not behave as expected."
-                    )
-
             rules.append(item)
 
         return rules, errors
 
-    def _rebuild_rules_from_post(self, post_data):
-        """
-        Reconstruct rules from the submitted table form.
-
-        Field naming convention:
-            rule-<index>-<FieldName>
-
-        Examples:
-            rule-0-Policy
-            rule-0-Source
-            rule-0-Destination
-            rule-0-Security_Profiles
-
-        Returns:
-            (list_of_rules, list_of_errors)
-        """
+    # =======================================================================
+    # REBUILD RULES FROM POST
+    # =======================================================================
+    def _rebuild_rules_from_post(self, post):
         errors = []
-        rules_by_idx = {}
+        result = {}
 
-        for key, value in post_data.items():
+        for key, val in post.items():
             if not key.startswith("rule-"):
                 continue
-
             try:
-                _, idx_str, field_name = key.split("-", 2)
-                idx = int(idx_str)
+                _, idx, field = key.split("-", 2)
+                idx = int(idx)
             except ValueError:
-                # Ignore fields that don't match the expected pattern
                 continue
 
-            if idx not in rules_by_idx:
-                rules_by_idx[idx] = {}
+            result.setdefault(idx, {})
+            v = val.strip()
 
-            raw_value = value.strip()
-
-            # List fields are stored as comma-separated strings in the form
-            if field_name in self.LIST_FIELDS:
-                if not raw_value:
-                    rules_by_idx[idx][field_name] = []
-                else:
-                    rules_by_idx[idx][field_name] = [
-                        part.strip()
-                        for part in raw_value.split(",")
-                        if part.strip()
-                    ]
+            if field in self.LIST_FIELDS:
+                result[idx][field] = [x.strip() for x in v.split(",") if x.strip()]
             else:
-                rules_by_idx[idx][field_name] = raw_value
+                result[idx][field] = v
 
-        # Build ordered list of rules by index
         rules = []
-        for i in sorted(rules_by_idx.keys()):
-            rule = rules_by_idx[i]
-            # Normalize internal keys (e.g. Security Profiles -> Security_Profiles)
-            rule = self._normalize_keys(rule)
-            rules.append(rule)
+        for i in sorted(result.keys()):
+            r = self._normalize_keys(result[i])
+            rules.append(r)
 
         return rules, errors
 
-    def _normalize_keys(self, rule: dict) -> dict:
-        """
-        Normalize keys in a single rule dict.
-
-        In particular:
-        - Convert "Security Profiles" -> "Security_Profiles".
-          If both exist, we merge them into one list.
-        """
+    # =======================================================================
+    # NORMALIZATION
+    # =======================================================================
+    def _normalize_keys(self, rule):
         if "Security Profiles" in rule:
-            sp_value = rule.pop("Security Profiles")
+            vals = rule.pop("Security Profiles")
+            if not isinstance(vals, list):
+                vals = [vals]
+
             existing = rule.get("Security_Profiles", [])
-            # Ensure both sides are lists
-            if not isinstance(sp_value, list):
-                sp_value = [sp_value]
             if not isinstance(existing, list):
                 existing = [existing]
-            rule["Security_Profiles"] = existing + sp_value
+
+            rule["Security_Profiles"] = existing + vals
+
         return rule
 
+    # =======================================================================
+    # DEFAULTS
+    # =======================================================================
     def _ensure_rule_defaults(self, rules):
-        """
-        Ensure each rule has all the fields needed by the template,
-        with correct types (lists vs. scalars).
-
-        This prevents template errors when keys are missing.
-        """
-        for rule in rules:
-            # Ensure list fields exist and are lists
+        for r in rules:
             for key in self.LIST_FIELDS:
                 if key == "Security Profiles":
-                    # We don't use this name internally
                     continue
-                if key not in rule:
-                    rule[key] = []
-                else:
-                    if not isinstance(rule[key], list):
-                        rule[key] = [rule[key]]
+                r.setdefault(key, [])
+                if not isinstance(r[key], list):
+                    r[key] = [r[key]]
 
-            # Ensure scalar fields exist
             for key in self.SCALAR_FIELDS:
-                if key not in rule:
-                    rule[key] = ""
+                r.setdefault(key, "")
 
-    # -------------------------------------------------------------
-    # Validation logic
-    # -------------------------------------------------------------
+            r.setdefault("Security_Profiles", [])
 
-    def _build_empty_validation(self):
-        """
-        Build an empty validation structure.
-
-        - any_any:   list of rule indexes (0-based) that are any-to-any.
-        - duplicates: dict mapping rule index -> duplicate group id.
-        """
-        return {
-            "any_any": [],
-            "duplicates": {},
-        }
-
+    # =======================================================================
+    # VALIDATION
+    # =======================================================================
     def _validate_rules(self, rules):
-        """
-        Validate:
-        - Any-to-any rules.
-        - Duplicate rules (same Source, Destination, Service, Action).
+        validation = {"any_any": [], "duplicates": {}}
 
-        Returns:
-            validation dict as in _build_empty_validation().
-        """
-        validation = self._build_empty_validation()
-
-        # 1) Any-to-any rules
-        for idx, rule in enumerate(rules):
-            src = rule.get("Source", [])
-            dst = rule.get("Destination", [])
-            if self._is_any_list(src) and self._is_any_list(dst):
+        # ANY-ANY
+        for idx, r in enumerate(rules):
+            if self._is_any_list(r["Source"]) and self._is_any_list(r["Destination"]):
                 validation["any_any"].append(idx)
 
-        # 2) Duplicate rules
-        signature_map = {}
-        for idx, rule in enumerate(rules):
-            src = tuple(sorted(rule.get("Source", [])))
-            dst = tuple(sorted(rule.get("Destination", [])))
-            services = tuple(sorted(rule.get("Service", [])))
-            action = rule.get("Action", "")
+        # DUPLICATES
+        sigs = {}
+        for idx, r in enumerate(rules):
+            sig = (
+                tuple(sorted(r["Source"])),
+                tuple(sorted(r["Destination"])),
+                tuple(sorted(r["Service"])),
+                r["Action"],
+            )
+            sigs.setdefault(sig, []).append(idx)
 
-            signature = (src, dst, services, action)
-            signature_map.setdefault(signature, []).append(idx)
-
-        group_id = 1
-        for idx_list in signature_map.values():
-            if len(idx_list) > 1:
-                for idx in idx_list:
-                    validation["duplicates"][idx] = group_id
-                group_id += 1
+        gid = 1
+        for lst in sigs.values():
+            if len(lst) > 1:
+                for idx in lst:
+                    validation["duplicates"][idx] = gid
+                gid += 1
 
         return validation
 
     def _annotate_rules_with_validation(self, rules, validation):
-        """
-        Annotate rules with simple boolean/number flags for template use.
+        for idx, r in enumerate(rules):
+            r["flag_any_any"] = idx in validation["any_any"]
+            r["flag_dup_group"] = validation["duplicates"].get(idx)
 
-        Adds to each rule:
-            _any_any:   True/False
-            _dup_group: group id or None
-        """
-        any_any_indices = set(validation.get("any_any", []))
-        duplicates_map = validation.get("duplicates", {})
-
-        for idx, rule in enumerate(rules):
-            rule["_any_any"] = idx in any_any_indices
-            rule["_dup_group"] = duplicates_map.get(idx)
-
-    def _is_any_list(self, values):
-        """
-        Determine if a list-like field represents "any".
-
-        Heuristics:
-        - Contains the literal "all" (case-insensitive).
-        - Contains "Net.0.0.0.0/0".
-        """
-        if not values:
+    def _is_any_list(self, lst):
+        if not lst:
             return False
-        lowered = [v.lower() for v in values]
-        if "all" in lowered:
-            return True
-        for v in lowered:
-            if v.startswith("net.0.0.0.0/0"):
-                return True
-        return False
+        low = [x.lower() for x in lst]
+        return "all" in low or any(x.startswith("net.0.0.0.0/0") for x in low)
 
-    # -------------------------------------------------------------
-    # Test traffic logic
-    # -------------------------------------------------------------
+    # =======================================================================
+    # TRAFFIC TEST
+    # =======================================================================
+    def _test_traffic(self, post, rules, errors):
+        src_raw = post.get("test_src_ip", "").strip()
+        dst_raw = post.get("test_dst_ip", "").strip()
+        proto = post.get("test_protocol", "").strip().lower()
+        port_raw = post.get("test_port", "").strip()
 
-    def _test_traffic(self, post_data, rules, errors):
-        """
-        Simulate traffic against the rules.
-
-        Expected POST fields:
-            test_src_ip
-            test_dst_ip
-            test_protocol (tcp/udp/icmp)
-            test_port     (integer; required for tcp/udp)
-
-        Returns:
-            dict describing the result or None if input was invalid.
-        """
-        src_ip_str = post_data.get("test_src_ip", "").strip()
-        dst_ip_str = post_data.get("test_dst_ip", "").strip()
-        protocol = post_data.get("test_protocol", "").strip().lower()
-        port_str = post_data.get("test_port", "").strip()
-
-        if not src_ip_str or not dst_ip_str or not protocol:
-            errors.append("Test requires source IP, destination IP, and protocol.")
+        if not src_raw or not dst_raw or not proto:
+            errors.append("Test requires source IP, destination IP, protocol.")
             return None
 
         try:
-            src_ip = ip_address(src_ip_str)
-        except ValueError:
-            errors.append(f"Invalid source IP address: {src_ip_str}")
+            src = ip_address(src_raw)
+        except:
+            errors.append(f"Invalid source IP: {src_raw}")
             return None
 
         try:
-            dst_ip = ip_address(dst_ip_str)
-        except ValueError:
-            errors.append(f"Invalid destination IP address: {dst_ip_str}")
+            dst = ip_address(dst_raw)
+        except:
+            errors.append(f"Invalid destination IP: {dst_raw}")
             return None
 
-        if protocol not in {"tcp", "udp", "icmp"}:
-            errors.append("Protocol must be one of: tcp, udp, icmp.")
+        if proto not in ("tcp", "udp", "icmp"):
+            errors.append("Protocol must be tcp, udp, or icmp.")
             return None
 
         port = None
-        if protocol in {"tcp", "udp"}:
+        if proto in ("tcp", "udp"):
             try:
-                port = int(port_str)
-            except (TypeError, ValueError):
-                errors.append("Port must be an integer for TCP/UDP tests.")
+                port = int(port_raw)
+            except:
+                errors.append("Port must be an integer.")
                 return None
 
-        # Evaluate rules in order; first match wins
-        for idx, rule in enumerate(rules):
-            if not self._ip_matches_any(src_ip, rule.get("Source", [])):
+        for idx, r in enumerate(rules):
+            if not self._ip_matches_any(src, r["Source"]):
                 continue
-            if not self._ip_matches_any(dst_ip, rule.get("Destination", [])):
+            if not self._ip_matches_any(dst, r["Destination"]):
                 continue
-            if not self._service_matches(protocol, port, rule.get("Service", [])):
+            if not self._service_matches(proto, port, r["Service"]):
                 continue
 
             return {
                 "matched": True,
                 "index": idx,
-                "policy_name": rule.get("Policy", f"Rule #{idx + 1}"),
-                "action": rule.get("Action", "UNKNOWN"),
-                "from_zones": rule.get("From", []),
-                "to_zones": rule.get("To", []),
-                "services": rule.get("Service", []),
+                "policy_name": r["Policy"],
+                "action": r["Action"],
+                "from_zones": r["From"],
+                "to_zones": r["To"],
+                "services": r["Service"],
             }
 
-        # No rule matched
-        return {
-            "matched": False,
-            "reason": "No matching rule found for the given traffic parameters.",
-        }
+        return {"matched": False, "reason": "No matching rule found."}
 
+    # =======================================================================
+    # MATCH HELPERS
+    # =======================================================================
     def _ip_matches_any(self, ip_obj, entries):
-        """
-        Check if an IP address matches any of the given Source/Destination entries.
-
-        Supported entry formats (based on your sample JSON):
-        - "IP.10.0.40.119"       -> exact IP
-        - "Net.10.0.40.0/24"     -> subnet
-        - "all"                  -> any IP
-        - Other symbolic names   -> ignored (non-matching) here
-        """
-        if not entries:
-            return False
-
-        for entry in entries:
-            entry = entry.strip()
-            if entry.lower() == "all":
+        for e in entries:
+            e = e.strip()
+            if e.lower() == "all":
                 return True
 
-            # Exact IP
-            if entry.lower().startswith("ip."):
-                ip_str = entry[3:]
+            if e.lower().startswith("ip."):
                 try:
-                    if ip_obj == ip_address(ip_str):
+                    if ip_obj == ip_address(e[3:]):
                         return True
-                except ValueError:
-                    logger.warning("Invalid IP entry in rule: %s", entry)
+                except:
                     continue
 
-            # Network
-            if entry.lower().startswith("net."):
-                net_str = entry[4:]
+            if e.lower().startswith("net."):
                 try:
-                    network = ip_network(net_str, strict=False)
-                    if ip_obj in network:
+                    if ip_obj in ip_network(e[4:], strict=False):
                         return True
-                except ValueError:
-                    logger.warning("Invalid network entry in rule: %s", entry)
+                except:
                     continue
 
-            # Names like "Cisco-Meraki.Cloud" cannot be evaluated here.
         return False
 
-    def _service_matches(self, protocol, port, services):
-        """
-        Check whether a service list matches the given protocol/port.
-
-        Rules:
-        - Empty service list -> treat as "any service".
-        - "ALL"              -> matches everything.
-        - "TCP:<port>"       -> matches that TCP port.
-        - "UDP:<port>"       -> matches that UDP port.
-        - "Port:<start>-<end>" -> any protocol, port in range.
-        - Named common services (HTTP, HTTPS, etc.) use SERVICE_PORT_MAP.
-
-        Unknown service names are ignored for matching.
-        """
-        if services is None or len(services) == 0:
-            # Treat as any service
+    def _service_matches(self, proto, port, services):
+        if not services:
             return True
 
-        for svc in services:
-            s = svc.strip().upper()
-            if s == "ALL":
+        for s in services:
+            up = s.upper()
+
+            if up == "ALL":
                 return True
 
-            # TCP:x / UDP:x
-            if s.startswith("TCP:") or s.startswith("UDP:"):
-                if protocol not in {"tcp", "udp"}:
-                    continue
-                svc_proto = s.split(":", 1)[0].lower()
-                try:
-                    svc_port = int(s.split(":", 1)[1])
-                except (IndexError, ValueError):
-                    logger.warning("Invalid TCP/UDP service definition: %s", s)
-                    continue
-                if svc_proto == protocol and port == svc_port:
-                    return True
-                continue
+            if up.startswith("TCP:") or up.startswith("UDP:"):
+                if proto in ("tcp", "udp"):
+                    try:
+                        svc_proto, svc_port = up.split(":", 1)
+                        if svc_proto.lower() == proto and int(svc_port) == port:
+                            return True
+                    except:
+                        continue
 
-            # Port:start-end (any protocol, range)
-            if s.startswith("PORT:"):
-                if protocol not in {"tcp", "udp"}:
-                    continue
+            if up.startswith("PORT:"):
                 try:
-                    range_part = s.split(":", 1)[1]
-                    if "-" in range_part:
-                        start_str, end_str = range_part.split("-", 1)
-                        start_port = int(start_str)
-                        end_port = int(end_str)
+                    rng = up.split(":", 1)[1]
+                    if "-" in rng:
+                        a, b = rng.split("-", 1)
+                        if int(a) <= port <= int(b):
+                            return True
                     else:
-                        start_port = end_port = int(range_part)
-                except (IndexError, ValueError):
-                    logger.warning("Invalid Port range definition: %s", s)
+                        if int(rng) == port:
+                            return True
+                except:
                     continue
-                if port is not None and start_port <= port <= end_port:
-                    return True
-                continue
 
-            # Named services mapped to (protocol, port)
-            if s in self.SERVICE_PORT_MAP:
-                svc_proto, svc_port = self.SERVICE_PORT_MAP[s]
-                if svc_proto == protocol and port == svc_port:
+            if up in self.SERVICE_PORT_MAP:
+                expected_proto, expected_port = self.SERVICE_PORT_MAP[up]
+                if expected_proto == proto and expected_port == port:
                     return True
-                continue
-
-            # Unknown service name
-            logger.debug("Unknown service name encountered during test: %s", s)
 
         return False
 
-    # -------------------------------------------------------------
-    # Export helpers
-    # -------------------------------------------------------------
-
+    # =======================================================================
+    # EXPORT
+    # =======================================================================
     def _export_json_response(self, rules):
-        """
-        Build a JSON download response for the current rules.
+        output = []
+        for r in rules:
+            rr = dict(r)
+            rr.pop("flag_any_any", None)
+            rr.pop("flag_dup_group", None)
 
-        We map our internal "Security_Profiles" key back to
-        "Security Profiles" so the JSON resembles the original
-        FortiGate export format.
-        """
-        export_rules = []
-        for rule in rules:
-            # Create a shallow copy so we can adjust keys
-            r = dict(rule)
+            if "Security_Profiles" in rr:
+                rr["Security Profiles"] = rr.pop("Security_Profiles")
 
-            # Remove internal validation fields if present
-            r.pop("_any_any", None)
-            r.pop("_dup_group", None)
+            output.append(rr)
 
-            # Map Security_Profiles -> Security Profiles
-            if "Security_Profiles" in r:
-                sp_val = r.pop("Security_Profiles")
-                r["Security Profiles"] = sp_val
-
-            export_rules.append(r)
-
-        json_str = json.dumps(export_rules, indent=2)
-        response = HttpResponse(json_str, content_type="application/json")
+        response = HttpResponse(
+            json.dumps(output, indent=2), content_type="application/json"
+        )
         response["Content-Disposition"] = (
             'attachment; filename="fortigate_policies.json"'
         )
         return response
 
     def _export_csv_response(self, rules):
-        """
-        Build a CSV download response for the current rules.
+        sio = StringIO()
+        w = csv.writer(sio)
 
-        List fields are joined using ", " in each column.
-        """
-        output = StringIO()
-        writer = csv.writer(output)
-
-        # CSV header
         header = [
             "Policy",
             "From",
@@ -700,33 +456,32 @@ class FortigatePolicyToolsetView(View):
             "Log",
             "Bytes",
         ]
-        writer.writerow(header)
+        w.writerow(header)
 
-        for rule in rules:
-            # Remove internal validation fields if present
-            # (safe to ignore if missing)
-            rule.pop("_any_any", None)
-            rule.pop("_dup_group", None)
+        for r in rules:
+            r.pop("flag_any_any", None)
+            r.pop("flag_dup_group", None)
 
-            row = [
-                rule.get("Policy", ""),
-                ", ".join(rule.get("From", []) or []),
-                ", ".join(rule.get("To", []) or []),
-                ", ".join(rule.get("Source", []) or []),
-                ", ".join(rule.get("Destination", []) or []),
-                ", ".join(rule.get("Schedule", []) or []),
-                ", ".join(rule.get("Service", []) or []),
-                rule.get("Action", ""),
-                ", ".join(rule.get("IP Pool", []) or []),
-                rule.get("NAT", ""),
-                rule.get("Type", ""),
-                ", ".join(rule.get("Security_Profiles", []) or []),
-                rule.get("Log", ""),
-                rule.get("Bytes", ""),
-            ]
-            writer.writerow(row)
+            w.writerow(
+                [
+                    r["Policy"],
+                    ", ".join(r["From"]),
+                    ", ".join(r["To"]),
+                    ", ".join(r["Source"]),
+                    ", ".join(r["Destination"]),
+                    ", ".join(r["Schedule"]),
+                    ", ".join(r["Service"]),
+                    r["Action"],
+                    ", ".join(r["IP Pool"]),
+                    r["NAT"],
+                    r["Type"],
+                    ", ".join(r["Security_Profiles"]),
+                    r["Log"],
+                    r["Bytes"],
+                ]
+            )
 
-        response = HttpResponse(output.getvalue(), content_type="text/csv")
+        response = HttpResponse(sio.getvalue(), content_type="text/csv")
         response["Content-Disposition"] = (
             'attachment; filename="fortigate_policies.csv"'
         )
