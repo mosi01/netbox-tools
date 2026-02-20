@@ -1,145 +1,138 @@
 {% extends "generic/object.html" %}
 {% load helpers %}
 
-{# 
+{#
   NetBox Tools - Application detail template
 
-  This template extends NetBox's generic/object.html, which:
-    * Renders the standard object header (name, actions, status)
-    * Handles breadcrumbs and page title
-    * Integrates with model-view tabs when present
-
-  We just need to provide the "body" layout via the left/right content blocks.
+  - Extends generic/object.html so we get the standard NetBox object layout
+  - Renders the main content inside {% block content %}
 #}
 
-{# Page title shown in the browser tab #}
+{# Title in the browser tab #}
 {% block title %}
   Application: {{ application.display_name|default:application.name }}
 {% endblock %}
 
-{# 
-  LEFT COLUMN
-  =========== 
-  This is where we put the main Application attributes, similar to how
-  the Device view shows the "Device" panel.
-#}
-{% block content_left %}
+{# Main page content below the standard header #}
+{% block content %}
+<div class="row">
 
-  {# Application attributes card #}
-  <div class="card">
-    <h5 class="card-header">Application</h5>
-    <div class="card-body">
-      <table class="table table-hover attr-table">
-        <tr>
-          <th scope="row">Name</th>
-          <td>{{ application.name }}</td>
-        </tr>
-        <tr>
-          <th scope="row">Display name</th>
-          <td>{{ application.display_name|default:"—" }}</td>
-        </tr>
-        <tr>
-          <th scope="row">Status</th>
-          <td>{{ application.status|default:"—" }}</td>
-        </tr>
-        <tr>
-          <th scope="row">Description</th>
-          <td>{{ application.description|linebreaksbr|default:"—" }}</td>
-        </tr>
-        <tr>
-          <th scope="row">Service</th>
-          <td>
-            {% if application.service %}
-              <a href="{% url 'plugins:nbtools:service' pk=application.service.pk %}">
-                {{ application.service.display_name|default:application.service.name }}
-              </a>
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-        </tr>
-        <tr>
-          <th scope="row">Application owner</th>
-          <td>{{ application.application_owner|default:"—" }}</td>
-        </tr>
-        <tr>
-          <th scope="row">Technical contact</th>
-          <td>{{ application.technical_contact|default:"—" }}</td>
-        </tr>
-      </table>
-    </div>
-  </div>
-
-{% endblock content_left %}
-
-{# 
-  RIGHT COLUMN
-  ============
-  Here we show related Devices and Virtual Machines in separate cards,
-  similar to how Device details show related panels.
-#}
-{% block content_right %}
-
-  {# Related devices #}
-  <div class="card">
-    <h5 class="card-header">Devices</h5>
-    <div class="card-body">
-      {% if devices %}
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Device</th>
-              <th>Site</th>
-              <th>Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for d in devices %}
-              <tr>
-                <td>
-                  <a href="{{ d.get_absolute_url }}">{{ d }}</a>
-                </td>
-                <td>{{ d.site|default:"—" }}</td>
-                <td>{{ d.device_role|default:"—" }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
+  {# ----------------------------------------------------------- #}
+  {# LEFT COLUMN: Core application attributes                    #}
+  {# ----------------------------------------------------------- #}
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Application</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          <tr>
+            <th scope="row">Name</th>
+            <td>{{ application.name }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Display name</th>
+            <td>{{ application.display_name|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Status</th>
+            <td>{{ application.status|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Description</th>
+            <td>{{ application.description|linebreaksbr|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Service</th>
+            <td>
+              {% if application.service %}
+                <a href="{% url 'plugins:nbtools:service' pk=application.service.pk %}">
+                  {{ application.service.display_name|default:application.service.name }}
+                </a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Application owner</th>
+            <td>{{ application.application_owner|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Technical contact</th>
+            <td>{{ application.technical_contact|default:"—" }}</td>
+          </tr>
         </table>
-      {% else %}
-        <span class="text-muted">No related devices.</span>
-      {% endif %}
+      </div>
     </div>
   </div>
 
-  {# Related virtual machines #}
-  <div class="card mt-3">
-    <h5 class="card-header">Virtual machines</h5>
-    <div class="card-body">
-      {% if virtual_machines %}
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Virtual machine</th>
-              <th>Cluster</th>
-              <th>Tenant</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for vm in virtual_machines %}
+  {# ----------------------------------------------------------- #}
+  {# RIGHT COLUMN: Related Devices and Virtual Machines          #}
+  {# ----------------------------------------------------------- #}
+  <div class="col col-md-6">
+
+    {# Devices card #}
+    <div class="card">
+      <h5 class="card-header">Devices</h5>
+      <div class="card-body">
+        {% if devices %}
+          <table class="table table-hover">
+            <thead>
               <tr>
-                <td>
-                  <a href="{{ vm.get_absolute_url }}">{{ vm }}</a>
-                </td>
-                <td>{{ vm.cluster|default:"—" }}</td>
-                <td>{{ vm.tenant|default:"—" }}</td>
+                <th>Name</th>
+                <th>Site</th>
+                <th>Role</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <span class="text-muted">No related VMs.</span>
-      {% endif %}
+            </thead>
+            <tbody>
+              {% for d in devices %}
+                <tr>
+                  <td>
+                    <a href="{{ d.get_absolute_url }}">{{ d }}</a>
+                  </td>
+                  <td>{{ d.site|default:"—" }}</td>
+                  <td>{{ d.device_role|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <span class="text-muted">No related devices.</span>
+        {% endif %}
+      </div>
     </div>
-  </div>
 
-{% endblock content_right %}
+    {# Virtual machines card #}
+    <div class="card mt-3">
+      <h5 class="card-header">Virtual machines</h5>
+      <div class="card-body">
+        {% if virtual_machines %}
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Cluster</th>
+                <th>Tenant</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for vm in virtual_machines %}
+                <tr>
+                  <td>
+                    <a href="{{ vm.get_absolute_url }}">{{ vm }}</a>
+                  </td>
+                  <td>{{ vm.cluster|default:"—" }}</td>
+                  <td>{{ vm.tenant|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <span class="text-muted">No related virtual machines.</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
