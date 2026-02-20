@@ -6,6 +6,7 @@ Maps views to their respective routes.
 from django.urls import path
 
 from . import views
+from .models import Application, Service
 
 app_name = "nbtools"
 
