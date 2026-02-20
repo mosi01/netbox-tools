@@ -93,9 +93,9 @@ urlpatterns = [
         name="application_delete",
     ),
     path(
-        "applications/<int:pk>/changelog/",
-        views.ApplicationChangeLogView.as_view(),
-        name="application_changelog",
+    "applications/<int:pk>/changelog/",
+    views.ApplicationChangeLogView.as_view(model=Application),
+    name="application_changelog",
     ),
 
     # Services list + add + detail + edit + delete + changelog
@@ -125,8 +125,9 @@ urlpatterns = [
         name="service_delete",
     ),
     path(
-        "services/<int:pk>/changelog/",
-        views.ServiceChangeLogView.as_view(),
-        name="service_changelog",
-    ),
+    "services/<int:pk>/changelog/",
+    views.ServiceChangeLogView.as_view(model=Service),
+    name="service_changelog",
+),
+
 ]

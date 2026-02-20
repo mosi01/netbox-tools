@@ -1,39 +1,27 @@
-
 """
 change_log_views.py
 ===================
 
-Change log views for the NetBox Tools (nbtools) plugin.
+Correct changelog views for the NetBox Tools (nbtools) plugin.
 
-These views use NetBox's built-in ObjectChangeLogView to display
-the change history for Service and Application plugin models.
+IMPORTANT for NetBox 4.5:
+-------------------------
+ObjectChangeLogView *requires* the model to be passed into .as_view()
+via the URL route, not only defined as a class attribute.
 
-NetBox 4.5 requires that plugin changelog views define BOTH:
-  - model
-  - queryset
+Therefore the view classes MUST NOT override .get(), .dispatch(), etc.
 """
-
-import logging
 
 from netbox.views.generic import ObjectChangeLogView
 
 from ..models import Application, Service
 
 
-logger = logging.getLogger("nbtools")
-
-
 class ApplicationChangeLogView(ObjectChangeLogView):
-    """
-    Changelog view for the Application model.
-    """
-    model = Application                                 # REQUIRED
-    queryset = Application.objects.all()                # REQUIRED
+    """Changelog view for the Application model."""
+    queryset = Application.objects.all()
 
 
 class ServiceChangeLogView(ObjectChangeLogView):
-    """
-    Changelog view for the Service model.
-    """
-    model = Service                                     # REQUIRED
-    queryset = Service.objects.all()                    # FIXED: removed trailing comma
+    """Changelog view for the Service model."""
+    queryset = Service.objects.all()
