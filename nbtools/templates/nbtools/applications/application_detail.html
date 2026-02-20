@@ -1,66 +1,57 @@
-{% extends 'base/layout.html' %}
+{% extends "generic/object.html" %}
 {% load helpers %}
 
+{# 
+  NetBox Tools - Application detail template
+
+  This template extends NetBox's generic/object.html, which:
+    * Renders the standard object header (name, actions, status)
+    * Handles breadcrumbs and page title
+    * Integrates with model-view tabs when present
+
+  We just need to provide the "body" layout via the left/right content blocks.
+#}
+
+{# Page title shown in the browser tab #}
 {% block title %}
-  Application: {{ object.display_name|default:object.name }}
+  Application: {{ application.display_name|default:application.name }}
 {% endblock %}
 
-{% block content %}
+{# 
+  LEFT COLUMN
+  =========== 
+  This is where we put the main Application attributes, similar to how
+  the Device view shows the "Device" panel.
+#}
+{% block content_left %}
 
-<div class="row">
-  <div class="col col-md-12">
-
-    <div class="page-header">
-      <h1>
-        {{ object.display_name|default:object.name }}
-        <span class="text-muted">({{ object.name }})</span>
-      </h1>
-
-      <div class="btn-group float-right" role="group">
-        <a href="{% url 'plugins:nbtools:application_edit' pk=object.pk %}"
-           class="btn btn-primary">
-          <i class="mdi mdi-pencil"></i> Edit
-        </a>
-
-        <a href="{% url 'plugins:nbtools:application_delete' pk=object.pk %}"
-           class="btn btn-danger">
-          <i class="mdi mdi-trash-can"></i> Delete
-        </a>
-
-        <a href="{% url 'plugins:nbtools:application_changelog' pk=object.pk %}"
-           class="btn btn-secondary">
-          <i class="mdi mdi-history"></i> Changelog
-        </a>
-      </div>
-    </div>
-
-    <hr>
-
-    <div class="panel panel-default">
-      <div class="panel-heading"><strong>Application Details</strong></div>
-      <table class="table table-hover panel-body">
+  {# Application attributes card #}
+  <div class="card">
+    <h5 class="card-header">Application</h5>
+    <div class="card-body">
+      <table class="table table-hover attr-table">
         <tr>
-          <th>Name</th>
-          <td>{{ object.name }}</td>
+          <th scope="row">Name</th>
+          <td>{{ application.name }}</td>
         </tr>
         <tr>
-          <th>Display Name</th>
-          <td>{{ object.display_name }}</td>
+          <th scope="row">Display name</th>
+          <td>{{ application.display_name|default:"—" }}</td>
         </tr>
         <tr>
-          <th>Status</th>
-          <td>{{ object.status }}</td>
+          <th scope="row">Status</th>
+          <td>{{ application.status|default:"—" }}</td>
         </tr>
         <tr>
-          <th>Description</th>
-          <td>{{ object.description|linebreaksbr }}</td>
+          <th scope="row">Description</th>
+          <td>{{ application.description|linebreaksbr|default:"—" }}</td>
         </tr>
         <tr>
-          <th>Service</th>
+          <th scope="row">Service</th>
           <td>
-            {% if object.service %}
-              <a href="{% url 'plugins:nbtools:service' pk=object.service.pk %}">
-                {{ object.service.display_name|default:object.service.name }}
+            {% if application.service %}
+              <a href="{% url 'plugins:nbtools:service' pk=application.service.pk %}">
+                {{ application.service.display_name|default:application.service.name }}
               </a>
             {% else %}
               <span class="text-muted">—</span>
@@ -68,47 +59,87 @@
           </td>
         </tr>
         <tr>
-          <th>Application Owner</th>
-          <td>{{ object.application_owner }}</td>
+          <th scope="row">Application owner</th>
+          <td>{{ application.application_owner|default:"—" }}</td>
         </tr>
         <tr>
-          <th>Technical Contact</th>
-          <td>{{ object.technical_contact }}</td>
+          <th scope="row">Technical contact</th>
+          <td>{{ application.technical_contact|default:"—" }}</td>
         </tr>
       </table>
     </div>
-
-    <div class="panel panel-default">
-      <div class="panel-heading"><strong>Devices</strong></div>
-      <div class="panel-body">
-        {% if object.devices.all %}
-          <ul>
-            {% for d in object.devices.all %}
-              <li><a href="{{ d.get_absolute_url }}">{{ d }}</a></li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <span class="text-muted">No related devices.</span>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="panel panel-default">
-      <div class="panel-heading"><strong>Virtual Machines</strong></div>
-      <div class="panel-body">
-        {% if object.virtual_machines.all %}
-          <ul>
-            {% for vm in object.virtual_machines.all %}
-              <li><a href="{{ vm.get_absolute_url }}">{{ vm }}</a></li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <span class="text-muted">No related VMs.</span>
-        {% endif %}
-      </div>
-    </div>
-
   </div>
-</div>
 
-{% endblock %}
+{% endblock content_left %}
+
+{# 
+  RIGHT COLUMN
+  ============
+  Here we show related Devices and Virtual Machines in separate cards,
+  similar to how Device details show related panels.
+#}
+{% block content_right %}
+
+  {# Related devices #}
+  <div class="card">
+    <h5 class="card-header">Devices</h5>
+    <div class="card-body">
+      {% if devices %}
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Site</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in devices %}
+              <tr>
+                <td>
+                  <a href="{{ d.get_absolute_url }}">{{ d }}</a>
+                </td>
+                <td>{{ d.site|default:"—" }}</td>
+                <td>{{ d.device_role|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <span class="text-muted">No related devices.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# Related virtual machines #}
+  <div class="card mt-3">
+    <h5 class="card-header">Virtual machines</h5>
+    <div class="card-body">
+      {% if virtual_machines %}
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Virtual machine</th>
+              <th>Cluster</th>
+              <th>Tenant</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for vm in virtual_machines %}
+              <tr>
+                <td>
+                  <a href="{{ vm.get_absolute_url }}">{{ vm }}</a>
+                </td>
+                <td>{{ vm.cluster|default:"—" }}</td>
+                <td>{{ vm.tenant|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <span class="text-muted">No related VMs.</span>
+      {% endif %}
+    </div>
+  </div>
+
+{% endblock content_right %}
