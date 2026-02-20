@@ -28,7 +28,7 @@ class ServiceDetailView(ObjectView):
     Render the detail view for a single Service.
 
     Template:
-        nbtools/services/service_detail.html
+        nbtools/applications/service_detail.html
 
     Context provided:
         object            -> The Service instance
@@ -40,7 +40,7 @@ class ServiceDetailView(ObjectView):
     queryset = Service.objects.all()
 
     # Using a dedicated, modern NetBox-styled detail template
-    template_name = "nbtools/services/service_detail.html"
+    template_name = "nbtools/applications/service_detail.html"
 
     def get_extra_context(self, request, instance):
         """
