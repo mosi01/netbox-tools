@@ -1,0 +1,41 @@
+{# nbtools/templates/nbtools/application.html #}
+{# 
+  Base template for the Application model.
+
+  This file is used by NetBox's feature views (like the changelog)
+  as `base_template`, for example in extras/object_changelog.html:
+
+      {% extends base_template %}
+
+  We keep it simple: extend the main NetBox layout and provide
+  a title block. The changelog template will override the content block.
+#}
+
+{% extends "base/layout.html" %}
+{% load helpers %}
+
+{# Title for pages using this base template (e.g. changelog) #}
+{% block title %}
+  Application: {{ object }}
+{% endblock %}
+
+{# 
+  Default content. For changelog, this block will be overridden
+  by extras/object_changelog.html, so this is only a fallback.
+#}
+{% block content %}
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <h1>Application: {{ object }}</h1>
+          <p class="text-muted">
+            This is the base template for Application feature views
+            (e.g. changelog). The actual content is provided by the
+            specific feature template (such as extras/object_changelog.html).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

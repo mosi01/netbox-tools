@@ -1,0 +1,32 @@
+{# nbtools/templates/nbtools/service.html #}
+{# 
+  Base template for the Service model.
+
+  Used as `base_template` by feature views such as the Service
+  changelog: extras/object_changelog.html.
+#}
+
+{% extends "base/layout.html" %}
+{% load helpers %}
+
+{% block title %}
+  Service: {{ object }}
+{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <h1>Service: {{ object }}</h1>
+          <p class="text-muted">
+            This is the base template for Service feature views
+            (e.g. changelog). The actual content is provided by the
+            specific feature template (such as extras/object_changelog.html).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
+``
