@@ -24,7 +24,7 @@ logger = logging.getLogger("nbtools")
 
 class ApplicationDetailView(ObjectView):
     queryset = Application.objects.all()
-    template_name = "netbox_tools/applications/application_detail.html"
+    template_name = "nbtools/applications/application_detail.html"
 
     def get_extra_context(self, request, instance):
         return {
