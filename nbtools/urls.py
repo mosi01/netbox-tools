@@ -6,9 +6,9 @@ Maps views to their respective routes.
 from django.urls import path
 
 from . import views
-from .models import Application, Service
 
 app_name = "nbtools"
+
 
 urlpatterns = [
     # Dashboard view
@@ -41,7 +41,7 @@ urlpatterns = [
         views.PrefixValidatorView.as_view(),
         name="prefix_validator",
     ),
-    
+
     path(
         "fortigate-policy-toolset/",
         views.FortigatePolicyToolsetView.as_view(),
@@ -65,7 +65,6 @@ urlpatterns = [
     # -----------------------------------------------------------------------
     # Applications & Services
     # -----------------------------------------------------------------------
-
 
     # Applications list + add + detail + edit + delete + changelog
     path(
@@ -94,9 +93,9 @@ urlpatterns = [
         name="application_delete",
     ),
     path(
-    "applications/<int:pk>/changelog/",
-    views.ApplicationChangeLogView.as_view(model=Application),
-    name="application_changelog",
+        "applications/<int:pk>/changelog/",
+        views.ApplicationChangeLogView.as_view(),
+        name="application_changelog",
     ),
 
     # Services list + add + detail + edit + delete + changelog
@@ -126,9 +125,8 @@ urlpatterns = [
         name="service_delete",
     ),
     path(
-    "services/<int:pk>/changelog/",
-    views.ServiceChangeLogView.as_view(model=Service),
-    name="service_changelog",
-),
-
+        "services/<int:pk>/changelog/",
+        views.ServiceChangeLogView.as_view(),
+        name="service_changelog",
+    ),
 ]
