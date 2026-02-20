@@ -2,10 +2,8 @@
 {#
   Base template for the Application model.
 
-  This is used by NetBox feature views such as:
-    extras/object_changelog.html
-  via:
-    {% extends base_template %}
+  Used as `base_template` by feature views such as the Application
+  changelog: extras/object_changelog.html.
 
   Therefore: THIS file must extend the real base layout,
   not base_template itself.
