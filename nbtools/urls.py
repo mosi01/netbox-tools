@@ -65,7 +65,9 @@ urlpatterns = [
     # -----------------------------------------------------------------------
     # Applications & Services
     # -----------------------------------------------------------------------
-
+    
+    #Commented out for main branch push.
+    """
     # Applications list + add + detail + edit + delete + changelog
     path(
         "applications/",
@@ -129,4 +131,5 @@ urlpatterns = [
         views.ServiceChangeLogView.as_view(),
         name="service_changelog",
     ),
+    """
 ]

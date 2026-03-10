@@ -87,6 +87,7 @@ menu = PluginMenu(
             ),
         ),
 
+        """ Commented out for main branch push
         # ----------------------------------------------------
         # NEW: Applications group (under Virtualization block)
         # ----------------------------------------------------
@@ -105,5 +106,6 @@ menu = PluginMenu(
                 ),
             ),
         ),
+        """
     ),
 )
