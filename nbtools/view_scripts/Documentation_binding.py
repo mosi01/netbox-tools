@@ -32,7 +32,7 @@ class DocumentationBindingView(View):
     The SharePoint document library now uses FOLDER NAME + METADATA fields
     to control how documents are bound to NetBox objects:
 
-        Path example:
+        Example path:
             Documents/Servers/SomeHLD.docx
 
         Metadata on the file:
@@ -43,14 +43,21 @@ class DocumentationBindingView(View):
         Folder name determines Object Type:
             Servers      -> Virtual Machine
             Devices      -> Device
-            Applications -> Application  (not yet visualized, but stored)
+            Applications -> Application
+
+    The actual folder path for each object type can be overridden via
+    SharePointConfig.folder_mappings, for example:
+
+        Servers      -> "Documentation/Sandbox/Servers"
+        Devices      -> "Documentation/Sandbox/Devices"
+        Applications -> "Documentation/Sandbox/Applications"
 
     On the NetBox side:
 
-    * server_name  = Object Name (e.g. "SE86DHCP0596")
-    * category     = Document Type (e.g. "HLD", "LLD")
-    * version      = Document Version (e.g. "1.1.13")
-    * application_name = Type label (e.g. "Virtual Machine", "Device")
+        server_name      = Object Name (e.g. "SE86DHCP0596")
+        category         = Document Type (e.g. "HLD", "LLD")
+        version          = Document Version (e.g. "1.1.13")
+        application_name = Type label (e.g. "Virtual Machine", "Device")
 
     The VM panel still groups by DocumentationBinding.category and filters
     by DocumentationBinding.server_name, so the only requirement is that
@@ -61,14 +68,17 @@ class DocumentationBindingView(View):
     template_name = "nbtools/documentation_binding.html"
 
     # Optional base folder under the Documents library.
-    # If left as "", files are expected directly under:
+    # If DOCUMENTATION_ROOT is "", and no folder_mappings override is given,
+    # files are expected in:
     #
-    #   Documents/Servers/
-    #   Documents/Devices/
-    #   Documents/Applications/
+    #   Documents/Servers
+    #   Documents/Devices
+    #   Documents/Applications
     #
-    # If you want an extra level (e.g. "Documentation/Servers/"), set:
-    #   DOCUMENTATION_ROOT = "Documentation"
+    # If you want "Documentation/Servers", you can either:
+    #   1) set DOCUMENTATION_ROOT = "Documentation", OR
+    #   2) configure folder_mappings:
+    #        Servers -> "Documentation/Servers"
     DOCUMENTATION_ROOT = ""
 
     def get(self, request):
@@ -124,14 +134,20 @@ class DocumentationBindingView(View):
                 client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
 
-                # Folder mappings (kept for backward compatibility in the UI).
-                # NOTE: These are no longer used for binding behavior, since
-                #       Document Type is now taken from metadata instead of
-                #       folder names.
+                # Folder mappings:
+                # Used to override the default path for each object type.
+                #
+                # Example:
+                #   Key:   Servers
+                #   Value: Documentation/Sandbox/Servers
+                #
+                # This will cause the sync code to read:
+                #   Documents/Documentation/Sandbox/Servers/...
+                #
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
                 folder_mappings = {
-                    k.strip(): v.strip().rstrip("/")
+                    k.strip(): v.strip().strip("/")
                     for k, v in zip(folder_keys, folder_values)
                     if k and v
                 }
@@ -205,33 +221,22 @@ class DocumentationBindingView(View):
 
         NEW BEHAVIOUR:
 
-        * We no longer iterate over each NetBox object & category folder.
-        * Instead, we iterate over top-level type folders inside the
-          Documents library:
+        * We iterate over object-type folders in the Documents library,
+          using either:
+              - /<DOCUMENTATION_ROOT>/<FolderName>
+            OR
+              - a custom path from folder_mappings[FolderName]
 
-              <DOCUMENTATION_ROOT>/Servers
-              <DOCUMENTATION_ROOT>/Devices
-              <DOCUMENTATION_ROOT>/Applications
+          Where FolderName is one of: "Servers", "Devices", "Applications".
 
-          (DOCUMENTATION_ROOT can be "", giving "Servers", "Devices", "Applications"
-           directly under "Documents").
-
-        * For each file in those folders, we read metadata fields:
+        * For each file, we read metadata fields:
 
               "Document Version" -> DocumentationBinding.version
               "Document Type"   -> DocumentationBinding.category
               "Object Name"     -> DocumentationBinding.server_name
 
         * Folder name ("Servers", "Devices", "Applications") determines the
-          Type label stored in DocumentationBinding.application_name:
-
-              Servers      -> "Virtual Machine"
-              Devices      -> "Device"
-              Applications -> "Application"
-
-        * Filename (without extension) is used as file_name (e.g. "SomeHLD").
-        * Extension is mapped via file_type_mappings to a friendly label
-          (e.g. ".docx" -> "Word Document").
+          Type label stored in DocumentationBinding.application_name.
         """
 
         config = SharePointConfig.objects.first()
@@ -242,6 +247,7 @@ class DocumentationBindingView(View):
         DocumentationBinding.objects.all().delete()
 
         file_type_mappings = config.file_type_mappings or {}
+        folder_mappings = config.folder_mappings or {}
 
         try:
             # -----------------------------------------------------------------
@@ -318,10 +324,7 @@ class DocumentationBindingView(View):
             total_files = 0
             path_results = []
 
-            # Mapping of SharePoint folder name -> type label
-            # You can adjust labels if you want other display text,
-            # but the folder names "Servers", "Devices", "Applications"
-            # must match your SharePoint structure.
+            # Mapping of SharePoint object-type folder name -> type label
             object_type_folders = {
                 "Servers": "Virtual Machine",
                 "Devices": "Device",
@@ -329,12 +332,20 @@ class DocumentationBindingView(View):
             }
 
             for folder_name, type_label in object_type_folders.items():
-                # Build path:
-                #   <DOCUMENTATION_ROOT>/Servers   (or just "Servers" if root is "")
-                if self.DOCUMENTATION_ROOT:
-                    sp_path = f"{self.DOCUMENTATION_ROOT}/{folder_name}"
+                # First, check if there is an explicit path override
+                # in folder_mappings, e.g.:
+                #   Servers -> Documentation/Sandbox/Servers
+                custom_path = folder_mappings.get(folder_name)
+
+                if custom_path:
+                    # Use the custom path as-is (relative to Documents)
+                    sp_path = custom_path.strip("/")
                 else:
-                    sp_path = folder_name
+                    # Fall back to DOCUMENTATION_ROOT + folder_name
+                    if self.DOCUMENTATION_ROOT:
+                        sp_path = f"{self.DOCUMENTATION_ROOT}/{folder_name}"
+                    else:
+                        sp_path = folder_name
 
                 folder_url = (
                     f"{GRAPH_BASE_URL}/drives/{drive_id}"
@@ -387,7 +398,7 @@ class DocumentationBindingView(View):
                 found_files = []
 
                 for item in items:
-                    # Only process files (skip subfolders etc.)
+                    # Only process files (skip subfolders, etc.)
                     if "file" not in item:
                         continue
 
@@ -416,35 +427,20 @@ class DocumentationBindingView(View):
                     # -----------------------------------------------------------------
                     # 3b. Map metadata fields to local variables
                     # -----------------------------------------------------------------
-                    # NOTE ABOUT INTERNAL NAMES:
-                    #
-                    # SharePoint internal field names may differ from the display
-                    # names ("Document Version", "Document Type", "Object Name").
-                    #
-                    # If your internal names are different, update the keys below.
-                    #
-                    # Example common patterns:
-                    #   "Document Version" -> "DocumentVersion" or "Document_x0020_Version"
-                    #   "Document Type"    -> "DocumentType"   or "Document_x0020_Type"
-                    #   "Object Name"      -> "ObjectName"     or "Object_x0020_Name"
-                    #
-                    # Adjust these as needed to match your library.
-
-                    # Version
+                    # NOTE:
+                    # Adjust the keys below to match your SharePoint internal field
+                    # names if they differ from these common patterns.
+                    # You can inspect fields_response.json() to confirm.
                     version = (
                         fields.get("DocumentVersion")
                         or fields.get("Document_x0020_Version")
                         or None
                     )
-
-                    # Document Type (category)
                     doc_type = (
                         fields.get("DocumentType")
                         or fields.get("Document_x0020_Type")
                         or None
                     )
-
-                    # Object Name (NetBox object name to bind to)
                     object_name = (
                         fields.get("ObjectName")
                         or fields.get("Object_x0020_Name")
@@ -454,7 +450,6 @@ class DocumentationBindingView(View):
                     # -----------------------------------------------------------------
                     # 3c. Fallbacks if metadata missing
                     # -----------------------------------------------------------------
-                    # Use filename (without extension) as display name.
                     base_name = raw_name.rsplit(".", 1)[0]
                     file_display_name = base_name
 
