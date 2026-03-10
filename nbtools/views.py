@@ -13,20 +13,20 @@ from .view_scripts.Serial_checker import SerialChecker
 from .view_scripts.VM_tool import VMToolView
 from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 
-""" Commented out for main branch push
-from .view_scripts.Application_detail import ApplicationDetailView
-from .view_scripts.Application_list import ApplicationListView
-from .view_scripts.Application_edit import ApplicationEditView
+#  Commented out for main branch push
+# from .view_scripts.Application_detail import ApplicationDetailView
+# from .view_scripts.Application_list import ApplicationListView
+# from .view_scripts.Application_edit import ApplicationEditView
 
-from .view_scripts.Service_detail import ServiceDetailView
-from .view_scripts.Service_list import ServiceListView
-from .view_scripts.Service_edit import ServiceEditView
-from .view_scripts.delete_views import ApplicationDeleteView, ServiceDeleteView
-from .view_scripts.change_log_views import (
-    ApplicationChangeLogView,
-    ServiceChangeLogView,
-)
-"""
+# from .view_scripts.Service_detail import ServiceDetailView
+# from .view_scripts.Service_list import ServiceListView
+# from .view_scripts.Service_edit import ServiceEditView
+# from .view_scripts.delete_views import ApplicationDeleteView, ServiceDeleteView
+# from .view_scripts.change_log_views import (
+#     ApplicationChangeLogView,
+#     ServiceChangeLogView,
+# )
+
 
 from django.shortcuts import render
 

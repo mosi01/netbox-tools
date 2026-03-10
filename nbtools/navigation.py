@@ -87,25 +87,24 @@ menu = PluginMenu(
             ),
         ),
 
-        """ Commented out for main branch push
-        # ----------------------------------------------------
-        # NEW: Applications group (under Virtualization block)
-        # ----------------------------------------------------
-        (
-            'Applications',
-            (
-                PluginMenuItem(
-                    link='plugins:nbtools:application_list',
-                    link_text='Applications',
-                    auth_required=True,
-                ),
-                PluginMenuItem(
-                    link='plugins:nbtools:service_list',
-                    link_text='Services',
-                    auth_required=True,
-                ),
-            ),
-        ),
-        """
+        #  Commented out for main branch push
+        # # ----------------------------------------------------
+        # # NEW: Applications group (under Virtualization block)
+        # # ----------------------------------------------------
+        # (
+        #     'Applications',
+        #     (
+        #         PluginMenuItem(
+        #             link='plugins:nbtools:application_list',
+        #             link_text='Applications',
+        #             auth_required=True,
+        #         ),
+        #         PluginMenuItem(
+        #             link='plugins:nbtools:service_list',
+        #             link_text='Services',
+        #             auth_required=True,
+        #         ),
+        #     ),
+        # ),
     ),
 )

@@ -66,70 +66,70 @@ urlpatterns = [
     # Applications & Services
     # -----------------------------------------------------------------------
     
-    #Commented out for main branch push.
-    """
-    # Applications list + add + detail + edit + delete + changelog
-    path(
-        "applications/",
-        views.ApplicationListView.as_view(),
-        name="application_list",
-    ),
-    path(
-        "applications/add/",
-        views.ApplicationEditView.as_view(),
-        name="application_add",
-    ),
-    path(
-        "applications/<int:pk>/",
-        views.ApplicationDetailView.as_view(),
-        name="application",
-    ),
-    path(
-        "applications/<int:pk>/edit/",
-        views.ApplicationEditView.as_view(),
-        name="application_edit",
-    ),
-    path(
-        "applications/<int:pk>/delete/",
-        views.ApplicationDeleteView.as_view(),
-        name="application_delete",
-    ),
-    path(
-        "applications/<int:pk>/changelog/",
-        views.ApplicationChangeLogView.as_view(),
-        name="application_changelog",
-    ),
+    # #Commented out for main branch push.
+    
+    # # Applications list + add + detail + edit + delete + changelog
+    # path(
+    #     "applications/",
+    #     views.ApplicationListView.as_view(),
+    #     name="application_list",
+    # ),
+    # path(
+    #     "applications/add/",
+    #     views.ApplicationEditView.as_view(),
+    #     name="application_add",
+    # ),
+    # path(
+    #     "applications/<int:pk>/",
+    #     views.ApplicationDetailView.as_view(),
+    #     name="application",
+    # ),
+    # path(
+    #     "applications/<int:pk>/edit/",
+    #     views.ApplicationEditView.as_view(),
+    #     name="application_edit",
+    # ),
+    # path(
+    #     "applications/<int:pk>/delete/",
+    #     views.ApplicationDeleteView.as_view(),
+    #     name="application_delete",
+    # ),
+    # path(
+    #     "applications/<int:pk>/changelog/",
+    #     views.ApplicationChangeLogView.as_view(),
+    #     name="application_changelog",
+    # ),
 
-    # Services list + add + detail + edit + delete + changelog
-    path(
-        "services/",
-        views.ServiceListView.as_view(),
-        name="service_list",
-    ),
-    path(
-        "services/add/",
-        views.ServiceEditView.as_view(),
-        name="service_add",
-    ),
-    path(
-        "services/<int:pk>/",
-        views.ServiceDetailView.as_view(),
-        name="service",
-    ),
-    path(
-        "services/<int:pk>/edit/",
-        views.ServiceEditView.as_view(),
-        name="service_edit",
-    ),
-    path(
-        "services/<int:pk>/delete/",
-        views.ServiceDeleteView.as_view(),
-        name="service_delete",
-    ),
-    path(
-        "services/<int:pk>/changelog/",
-        views.ServiceChangeLogView.as_view(),
-        name="service_changelog",
-    ),
-    """
+    # # Services list + add + detail + edit + delete + changelog
+    # path(
+    #     "services/",
+    #     views.ServiceListView.as_view(),
+    #     name="service_list",
+    # ),
+    # path(
+    #     "services/add/",
+    #     views.ServiceEditView.as_view(),
+    #     name="service_add",
+    # ),
+    # path(
+    #     "services/<int:pk>/",
+    #     views.ServiceDetailView.as_view(),
+    #     name="service",
+    # ),
+    # path(
+    #     "services/<int:pk>/edit/",
+    #     views.ServiceEditView.as_view(),
+    #     name="service_edit",
+    # ),
+    # path(
+    #     "services/<int:pk>/delete/",
+    #     views.ServiceDeleteView.as_view(),
+    #     name="service_delete",
+    # ),
+    # path(
+    #     "services/<int:pk>/changelog/",
+    #     views.ServiceChangeLogView.as_view(),
+    #     name="service_changelog",
+    # ),
+    
 ]
