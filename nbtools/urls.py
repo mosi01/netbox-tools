@@ -1,33 +1,135 @@
-
 """
 URL configuration for NetBox Tools plugin.
 Maps views to their respective routes.
 """
 
 from django.urls import path
+
 from . import views
 
 app_name = "nbtools"
+
 
 urlpatterns = [
     # Dashboard view
     path("", views.dashboard, name="dashboard"),
 
     # Documentation Reviewer
-    path("documentation-reviewer/", views.DocumentationReviewerView.as_view(), name="documentation_reviewer"),
+    path(
+        "documentation-reviewer/",
+        views.DocumentationReviewerView.as_view(),
+        name="documentation_reviewer",
+    ),
 
     # Serial Number Checker
-    path("serial-checker/", views.SerialChecker.as_view(), name="serial_checker"),
+    path(
+        "serial-checker/",
+        views.SerialChecker.as_view(),
+        name="serial_checker",
+    ),
 
     # IP Prefix Checker
-    path("ip_prefix_checker/", views.IPPrefixCheckerView.as_view(), name="ip_prefix_checker"),
+    path(
+        "ip_prefix_checker/",
+        views.IPPrefixCheckerView.as_view(),
+        name="ip_prefix_checker",
+    ),
 
     # Prefix Validator
-    path("prefix-validator/", views.PrefixValidatorView.as_view(), name="prefix_validator"),
+    path(
+        "prefix-validator/",
+        views.PrefixValidatorView.as_view(),
+        name="prefix_validator",
+    ),
+
+    path(
+        "fortigate-policy-toolset/",
+        views.FortigatePolicyToolsetView.as_view(),
+        name="fortigate_policy_toolset",
+    ),
 
     # VM Tool
-    path("vm-tool/", views.VMToolView.as_view(), name="vm_tool"),
+    path(
+        "vm-tool/",
+        views.VMToolView.as_view(),
+        name="vm_tool",
+    ),
 
     # Documentation Binding
-    path("documentation-binding/", views.DocumentationBindingView.as_view(), name="documentation_binding"),
+    path(
+        "documentation-binding/",
+        views.DocumentationBindingView.as_view(),
+        name="documentation_binding",
+    ),
+
+    # -----------------------------------------------------------------------
+    # Applications & Services
+    # -----------------------------------------------------------------------
+    
+    # #Commented out for main branch push.
+    
+    # # Applications list + add + detail + edit + delete + changelog
+    # path(
+    #     "applications/",
+    #     views.ApplicationListView.as_view(),
+    #     name="application_list",
+    # ),
+    # path(
+    #     "applications/add/",
+    #     views.ApplicationEditView.as_view(),
+    #     name="application_add",
+    # ),
+    # path(
+    #     "applications/<int:pk>/",
+    #     views.ApplicationDetailView.as_view(),
+    #     name="application",
+    # ),
+    # path(
+    #     "applications/<int:pk>/edit/",
+    #     views.ApplicationEditView.as_view(),
+    #     name="application_edit",
+    # ),
+    # path(
+    #     "applications/<int:pk>/delete/",
+    #     views.ApplicationDeleteView.as_view(),
+    #     name="application_delete",
+    # ),
+    # path(
+    #     "applications/<int:pk>/changelog/",
+    #     views.ApplicationChangeLogView.as_view(),
+    #     name="application_changelog",
+    # ),
+
+    # # Services list + add + detail + edit + delete + changelog
+    # path(
+    #     "services/",
+    #     views.ServiceListView.as_view(),
+    #     name="service_list",
+    # ),
+    # path(
+    #     "services/add/",
+    #     views.ServiceEditView.as_view(),
+    #     name="service_add",
+    # ),
+    # path(
+    #     "services/<int:pk>/",
+    #     views.ServiceDetailView.as_view(),
+    #     name="service",
+    # ),
+    # path(
+    #     "services/<int:pk>/edit/",
+    #     views.ServiceEditView.as_view(),
+    #     name="service_edit",
+    # ),
+    # path(
+    #     "services/<int:pk>/delete/",
+    #     views.ServiceDeleteView.as_view(),
+    #     name="service_delete",
+    # ),
+    # path(
+    #     "services/<int:pk>/changelog/",
+    #     views.ServiceChangeLogView.as_view(),
+    #     name="service_changelog",
+    # ),
+    
 ]

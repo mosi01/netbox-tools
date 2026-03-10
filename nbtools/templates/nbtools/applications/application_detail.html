@@ -1,0 +1,72 @@
+{% extends "generic/object.html" %}
+{% load helpers %}
+
+{% block title %}
+  Application: {{ object.display_name|default:object.name }}
+{% endblock %}
+
+{% block content %}
+<div class="row">
+
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Application</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          <tr><th>Name</th><td>{{ object.name }}</td></tr>
+          <tr><th>Display name</th><td>{{ object.display_name|default:"—" }}</td></tr>
+          <tr><th>Status</th><td>{{ object.status|default:"—" }}</td></tr>
+          <tr><th>Description</th><td>{{ object.description|linebreaksbr }}</td></tr>
+          <tr>
+            <th>Service</th>
+            <td>
+              {% if object.service %}
+                <a href="{{ object.service.get_absolute_url }}">{{ object.service }}</a>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><th>Application owner</th><td>{{ object.application_owner|default:"—" }}</td></tr>
+          <tr><th>Technical contact</th><td>{{ object.technical_contact|default:"—" }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-md-6">
+
+    <div class="card">
+      <h5 class="card-header">Devices</h5>
+      <div class="card-body">
+        {% if devices %}
+          <ul>
+          {% for d in devices %}
+            <li><a href="{{ d.get_absolute_url }}">{{ d }}</a></li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No related devices.</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <h5 class="card-header">Virtual Machines</h5>
+      <div class="card-body">
+        {% if virtual_machines %}
+          <ul>
+          {% for vm in virtual_machines %}
+            <li><a href="{{ vm.get_absolute_url }}">{{ vm }}</a></li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No related VMs.</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{# nbtools/templates/nbtools/application.html #}
+{#
+  Base template for the Application model.
+
+  Used as `base_template` by feature views such as the Application
+  changelog: extras/object_changelog.html.
+
+  Therefore: THIS file must extend the real base layout,
+  not base_template itself.
+#}
+
+{% extends "base/layout.html" %}
+{% load helpers %}
+
+{# Title for feature views referencing this model #}
+{% block title %}
+  Application: {{ object }}
+{% endblock %}
+
+{# Default fallback content.
+   Feature templates (like changelog) will override this block.
+#}
+{% block content %}
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <div class="card-body">
+          <h2>Application: {{ object }}</h2>
+          <p class="text-muted">
+            This is the base template for Application feature views.
+            The actual page content is provided by the specific feature view
+            (e.g., changelog).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

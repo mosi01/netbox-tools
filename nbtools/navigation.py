@@ -1,4 +1,3 @@
-
 """
 Plugin navigation configuration for NetBox Tools.
 Defines menu structure and items for the plugin.
@@ -6,12 +5,15 @@ Defines menu structure and items for the plugin.
 
 from netbox.plugins import PluginMenu, PluginMenuItem
 
-# Define the plugin menu
+
 menu = PluginMenu(
     label='NetBox Tools',
     icon_class='mdi mdi-tools',
     groups=(
+
+        # -----------------------------
         # Dashboard group
+        # -----------------------------
         (
             '',
             (
@@ -22,7 +24,10 @@ menu = PluginMenu(
                 ),
             ),
         ),
+
+        # -----------------------------
         # Infrastructure Tools group
+        # -----------------------------
         (
             'Infrastructure Tools',
             (
@@ -38,7 +43,10 @@ menu = PluginMenu(
                 ),
             ),
         ),
+
+        # -----------------------------
         # Networking Tools group
+        # -----------------------------
         (
             'Networking Tools',
             (
@@ -51,10 +59,18 @@ menu = PluginMenu(
                     link='plugins:nbtools:ip_prefix_checker',
                     link_text='IP Prefix Checker',
                     auth_required=True,
+                ),               
+                PluginMenuItem(
+                    link='plugins:nbtools:fortigate_policy_toolset',
+                    link_text='Fortigate Policy Toolset',
+                    auth_required=True,
                 ),
             ),
         ),
+
+        # -----------------------------
         # Documentation Tools group
+        # -----------------------------
         (
             'Documentation Tools',
             (
@@ -70,5 +86,25 @@ menu = PluginMenu(
                 ),
             ),
         ),
+
+        #  Commented out for main branch push
+        # # ----------------------------------------------------
+        # # NEW: Applications group (under Virtualization block)
+        # # ----------------------------------------------------
+        # (
+        #     'Applications',
+        #     (
+        #         PluginMenuItem(
+        #             link='plugins:nbtools:application_list',
+        #             link_text='Applications',
+        #             auth_required=True,
+        #         ),
+        #         PluginMenuItem(
+        #             link='plugins:nbtools:service_list',
+        #             link_text='Services',
+        #             auth_required=True,
+        #         ),
+        #     ),
+        # ),
     ),
 )

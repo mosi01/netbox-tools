@@ -1,0 +1,88 @@
+{% extends "generic/object.html" %}
+{% load helpers %}
+
+{# ---------------------------------------------------------------------
+   Service Detail Page
+   NetBox Tools plugin
+
+   This template mirrors the Application detail view and uses NetBox's
+   native object page layout. 
+   --------------------------------------------------------------------- #}
+
+{% block title %}
+  Service: {{ object.display_name|default:object.name }}
+{% endblock %}
+
+
+{% block content %}
+<div class="row">
+
+  {# -------------------------------------------------------- #}
+  {# LEFT COLUMN: Core service attributes                     #}
+  {# -------------------------------------------------------- #}
+  <div class="col col-md-6">
+    <div class="card">
+      <h5 class="card-header">Service</h5>
+      <div class="card-body">
+        <table class="table table-hover attr-table">
+          <tr>
+            <th scope="row">Name</th>
+            <td>{{ object.name }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Display name</th>
+            <td>{{ object.display_name|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Description</th>
+            <td>{{ object.description|linebreaksbr|default:"—" }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Service owner</th>
+            <td>{{ object.service_owner|default:"—" }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+  {# -------------------------------------------------------- #}
+  {# RIGHT COLUMN: Related applications                       #}
+  {# -------------------------------------------------------- #}
+  <div class="col col-md-6">
+
+    <div class="card">
+      <h5 class="card-header">Applications in this Service</h5>
+      <div class="card-body">
+        {% if applications %}
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for app in applications %}
+                <tr>
+                  <td>
+                    <a href="{% url 'plugins:nbtools:application' pk=app.pk %}">
+                      {{ app.display_name|default:app.name }}
+                    </a>
+                  </td>
+                  <td>{{ app.status|default:"—" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <span class="text-muted">No applications linked.</span>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
