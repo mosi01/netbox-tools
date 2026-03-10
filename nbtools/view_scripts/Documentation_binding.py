@@ -11,8 +11,8 @@ from django.views.decorators.csrf import csrf_exempt
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 
+# Import plugin models
 from ..models import DocumentationBinding, SharePointConfig
-
 
 # Base URL for Microsoft Graph API
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
@@ -25,33 +25,51 @@ logger = logging.getLogger(__name__)
 class DocumentationBindingView(View):
     """
     View for configuring SharePoint access and synchronizing documentation
-    bindings with NetBox objects (Devices / VirtualMachines).
+    bindings with NetBox objects.
 
-    Folder mappings are now interpreted as:
+    UPDATED BEHAVIOUR (metadata-driven):
 
-        Display Name  →  Subfolder after object name
+    The SharePoint document library now uses FOLDER NAME + METADATA fields
+    to control how documents are bound to NetBox objects:
 
-    Example:
-        Runbook           → RB
-        Low Level Design  → LLD
+        Path example:
+            Documents/Servers/SomeHLD.docx
 
-    Expected SharePoint structure (per object):
+        Metadata on the file:
+            Document Version : 1.1.13      --> stored as DocumentationBinding.version
+            Document Type    : HLD          --> stored as DocumentationBinding.category
+            Object Name      : SE86DHCP0596 --> stored as DocumentationBinding.server_name
 
-        Documents/
-          Documentation/
-            <ObjectName>/
-              RB/
-                Some Runbook-v1.0.docx
-              LLD/
-                Detailed Design.docx
+        Folder name determines Object Type:
+            Servers      -> Virtual Machine
+            Devices      -> Device
+            Applications -> Application  (not yet visualized, but stored)
+
+    On the NetBox side:
+
+    * server_name  = Object Name (e.g. "SE86DHCP0596")
+    * category     = Document Type (e.g. "HLD", "LLD")
+    * version      = Document Version (e.g. "1.1.13")
+    * application_name = Type label (e.g. "Virtual Machine", "Device")
+
+    The VM panel still groups by DocumentationBinding.category and filters
+    by DocumentationBinding.server_name, so the only requirement is that
+    Object Name matches the NetBox object's name (e.g. VirtualMachine.name).
     """
 
     # Django template to render
     template_name = "nbtools/documentation_binding.html"
 
-    # Base folder under the Documents library where all object folders live.
-    # You can adjust this if your structure differs (e.g. "NetBoxDocs").
-    DOCUMENTATION_ROOT = "Documentation"
+    # Optional base folder under the Documents library.
+    # If left as "", files are expected directly under:
+    #
+    #   Documents/Servers/
+    #   Documents/Devices/
+    #   Documents/Applications/
+    #
+    # If you want an extra level (e.g. "Documentation/Servers/"), set:
+    #   DOCUMENTATION_ROOT = "Documentation"
+    DOCUMENTATION_ROOT = ""
 
     def get(self, request):
         """
@@ -68,7 +86,9 @@ class DocumentationBindingView(View):
             }
 
         # Fetch all cached bindings ordered by category and server name
-        docs = DocumentationBinding.objects.all().order_by("category", "server_name")
+        docs = DocumentationBinding.objects.all().order_by(
+            "category", "server_name"
+        )
 
         # Add an exists_flag for each doc (does the NetBox object exist?)
         for doc in docs:
@@ -90,6 +110,7 @@ class DocumentationBindingView(View):
     def post(self, request):
         """
         Handle POST requests for:
+
         - Saving configuration
         - Triggering sync from SharePoint
         """
@@ -103,8 +124,10 @@ class DocumentationBindingView(View):
                 client_id = request.POST.get("client_id")
                 client_secret = request.POST.get("client_secret")
 
-                # Folder mappings: Display name → Subfolder name (after object name)
-                # Example: "Runbook" → "RB"
+                # Folder mappings (kept for backward compatibility in the UI).
+                # NOTE: These are no longer used for binding behavior, since
+                #       Document Type is now taken from metadata instead of
+                #       folder names.
                 folder_keys = request.POST.getlist("folder_keys[]")
                 folder_values = request.POST.getlist("folder_values[]")
                 folder_mappings = {
@@ -113,7 +136,7 @@ class DocumentationBindingView(View):
                     if k and v
                 }
 
-                # File type mappings: extension → description
+                # File type mappings: extension -> description
                 file_type_keys = request.POST.getlist("file_type_keys[]")
                 file_type_values = request.POST.getlist("file_type_values[]")
                 file_type_mappings = {
@@ -150,8 +173,10 @@ class DocumentationBindingView(View):
                     )
                     messages.success(
                         request,
-                        f"Sync complete. {result['count']} documents cached.\n"
-                        f"Details:\n{details}",
+                        (
+                            f"Sync complete. {result['count']} documents cached.\n"
+                            f"Details:\n{details}"
+                        ),
                     )
                 else:
                     details = "\n".join(
@@ -174,34 +199,41 @@ class DocumentationBindingView(View):
     # -------------------------------------------------------------------------
     # SharePoint sync logic
     # -------------------------------------------------------------------------
-
     def sync_sharepoint(self):
         """
         Synchronize documentation from SharePoint into DocumentationBinding.
 
-        New behaviour:
+        NEW BEHAVIOUR:
 
-        * folder_mappings:
-            Key   = Category display name (e.g. "Runbook")
-            Value = Subfolder name AFTER object name (e.g. "RB")
+        * We no longer iterate over each NetBox object & category folder.
+        * Instead, we iterate over top-level type folders inside the
+          Documents library:
 
-        * Expected path pattern (per NetBox object & category):
+              <DOCUMENTATION_ROOT>/Servers
+              <DOCUMENTATION_ROOT>/Devices
+              <DOCUMENTATION_ROOT>/Applications
 
-            {DOCUMENTATION_ROOT}/{object_name}/{category_subfolder}/<files>
+          (DOCUMENTATION_ROOT can be "", giving "Servers", "Devices", "Applications"
+           directly under "Documents").
 
-          Example with DOCUMENTATION_ROOT = "Documentation":
+        * For each file in those folders, we read metadata fields:
 
-            Documentation/SRV-APP01/RB/Some Runbook-v1.0.docx
-            Documentation/VM-CRM-PROD/LLD/Low Level Design-v2.1.docx
+              "Document Version" -> DocumentationBinding.version
+              "Document Type"   -> DocumentationBinding.category
+              "Object Name"     -> DocumentationBinding.server_name
 
-        * Object names (server_name) now come from the folder name (NetBox
-          Device / VirtualMachine name), not from the filename.
+        * Folder name ("Servers", "Devices", "Applications") determines the
+          Type label stored in DocumentationBinding.application_name:
 
-        * Filename is only used for:
-            - Human-friendly title
-            - Optional version (-v1.2.3)
-            - Extension (mapped via file_type_mappings)
+              Servers      -> "Virtual Machine"
+              Devices      -> "Device"
+              Applications -> "Application"
+
+        * Filename (without extension) is used as file_name (e.g. "SomeHLD").
+        * Extension is mapped via file_type_mappings to a friendly label
+          (e.g. ".docx" -> "Word Document").
         """
+
         config = SharePointConfig.objects.first()
         if not config:
             return {"status": "error", "error": "No configuration found."}
@@ -209,15 +241,7 @@ class DocumentationBindingView(View):
         # Remove all existing bindings before resync
         DocumentationBinding.objects.all().delete()
 
-        folder_mappings = config.folder_mappings or {}
         file_type_mappings = config.file_type_mappings or {}
-
-        if not folder_mappings:
-            return {
-                "status": "error",
-                "error": "No folder mappings configured (Runbook/RB, etc.).",
-                "details": [],
-            }
 
         try:
             # -----------------------------------------------------------------
@@ -251,8 +275,8 @@ class DocumentationBindingView(View):
             path = "/" + "/".join(
                 config.site_url.replace("https://", "").split("/")[1:]
             )
-            site_lookup_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
 
+            site_lookup_url = f"{GRAPH_BASE_URL}/sites/{hostname}:{path}"
             site_response = requests.get(site_lookup_url, headers=headers)
             if site_response.status_code != 200:
                 return {
@@ -279,6 +303,7 @@ class DocumentationBindingView(View):
                 ),
                 None,
             )
+
             if not documents_drive:
                 return {
                     "status": "error",
@@ -288,146 +313,206 @@ class DocumentationBindingView(View):
             drive_id = documents_drive["id"]
 
             # -----------------------------------------------------------------
-            # 3. Iterate over NetBox objects and folder mappings
-            #
-            #    For each Device / VirtualMachine and each configured category,
-            #    look for:
-            #
-            #      Documentation/<ObjectName>/<CategorySubfolder>/files
+            # 3. Iterate over Object-Type folders and their files
             # -----------------------------------------------------------------
             total_files = 0
             path_results = []
 
-            # List of (type_label, queryset) pairs
-            # type_label will be shown in the "Type" column in the UI.
-            object_sources = [
-                ("Device", Device.objects.all()),
-                ("Virtual Machine", VirtualMachine.objects.all()),
-            ]
+            # Mapping of SharePoint folder name -> type label
+            # You can adjust labels if you want other display text,
+            # but the folder names "Servers", "Devices", "Applications"
+            # must match your SharePoint structure.
+            object_type_folders = {
+                "Servers": "Virtual Machine",
+                "Devices": "Device",
+                "Applications": "Application",
+            }
 
-            for type_label, queryset in object_sources:
-                for obj in queryset:
-                    object_name = obj.name
+            for folder_name, type_label in object_type_folders.items():
+                # Build path:
+                #   <DOCUMENTATION_ROOT>/Servers   (or just "Servers" if root is "")
+                if self.DOCUMENTATION_ROOT:
+                    sp_path = f"{self.DOCUMENTATION_ROOT}/{folder_name}"
+                else:
+                    sp_path = folder_name
 
-                    for category_display, category_subfolder in folder_mappings.items():
-                        if not category_subfolder:
-                            continue
+                folder_url = (
+                    f"{GRAPH_BASE_URL}/drives/{drive_id}"
+                    f"/root:/{sp_path}:/children"
+                )
 
-                        category_subfolder = category_subfolder.strip("/")
+                folder_response = requests.get(folder_url, headers=headers)
 
-                        # Build SharePoint path:
-                        #   Documentation/<ObjectName>/<CategorySubfolder>
-                        sp_path = (
-                            f"{self.DOCUMENTATION_ROOT}/"
-                            f"{object_name}/"
-                            f"{category_subfolder}"
+                # Handle errors and missing folders gracefully
+                if folder_response.status_code == 404:
+                    path_results.append(
+                        {
+                            "path": sp_path,
+                            "status": "warning",
+                            "message": (
+                                "Folder not found. This usually means "
+                                "no documentation exists yet for this object type."
+                            ),
+                        }
+                    )
+                    continue
+
+                if folder_response.status_code != 200:
+                    error_msg = (
+                        f"Failed to fetch folder '{sp_path}'. "
+                        f"Status: {folder_response.status_code}. "
+                        f"URL: {folder_url}"
+                    )
+                    path_results.append(
+                        {
+                            "path": sp_path,
+                            "status": "error",
+                            "message": error_msg,
+                        }
+                    )
+                    continue
+
+                items = folder_response.json().get("value", [])
+                if not items:
+                    path_results.append(
+                        {
+                            "path": sp_path,
+                            "status": "warning",
+                            "message": "No items found in folder.",
+                        }
+                    )
+                    continue
+
+                files_found = 0
+                found_files = []
+
+                for item in items:
+                    # Only process files (skip subfolders etc.)
+                    if "file" not in item:
+                        continue
+
+                    raw_name = item["name"]
+                    found_files.append(raw_name)
+
+                    # -----------------------------------------------------------------
+                    # 3a. Fetch metadata (list item fields) for this file
+                    # -----------------------------------------------------------------
+                    fields_url = (
+                        f"{GRAPH_BASE_URL}/drives/{drive_id}"
+                        f"/items/{item['id']}/listItem/fields"
+                    )
+                    fields_response = requests.get(fields_url, headers=headers)
+
+                    if fields_response.status_code == 200:
+                        fields = fields_response.json()
+                    else:
+                        fields = {}
+                        logger.warning(
+                            "Failed to fetch metadata for item %s: %s",
+                            item["id"],
+                            fields_response.text,
                         )
 
-                        folder_url = (
-                            f"{GRAPH_BASE_URL}/drives/{drive_id}"
-                            f"/root:/{sp_path}:/children"
-                        )
+                    # -----------------------------------------------------------------
+                    # 3b. Map metadata fields to local variables
+                    # -----------------------------------------------------------------
+                    # NOTE ABOUT INTERNAL NAMES:
+                    #
+                    # SharePoint internal field names may differ from the display
+                    # names ("Document Version", "Document Type", "Object Name").
+                    #
+                    # If your internal names are different, update the keys below.
+                    #
+                    # Example common patterns:
+                    #   "Document Version" -> "DocumentVersion" or "Document_x0020_Version"
+                    #   "Document Type"    -> "DocumentType"   or "Document_x0020_Type"
+                    #   "Object Name"      -> "ObjectName"     or "Object_x0020_Name"
+                    #
+                    # Adjust these as needed to match your library.
 
-                        folder_response = requests.get(folder_url, headers=headers)
+                    # Version
+                    version = (
+                        fields.get("DocumentVersion")
+                        or fields.get("Document_x0020_Version")
+                        or None
+                    )
 
-                        # Handle errors and missing folders gracefully
-                        if folder_response.status_code == 404:
-                            path_results.append(
-                                {
-                                    "path": sp_path,
-                                    "status": "warning",
-                                    "message": (
-                                        "Folder not found. This usually means "
-                                        "no documentation exists yet for this "
-                                        "object/category."
-                                    ),
-                                }
-                            )
-                            continue
+                    # Document Type (category)
+                    doc_type = (
+                        fields.get("DocumentType")
+                        or fields.get("Document_x0020_Type")
+                        or None
+                    )
 
-                        if folder_response.status_code != 200:
-                            error_msg = (
-                                f"Failed to fetch folder '{sp_path}'. "
-                                f"Status: {folder_response.status_code}. "
-                                f"URL: {folder_url}"
-                            )
-                            path_results.append(
-                                {
-                                    "path": sp_path,
-                                    "status": "error",
-                                    "message": error_msg,
-                                }
-                            )
-                            continue
+                    # Object Name (NetBox object name to bind to)
+                    object_name = (
+                        fields.get("ObjectName")
+                        or fields.get("Object_x0020_Name")
+                        or None
+                    )
 
-                        items = folder_response.json().get("value", [])
-                        if not items:
-                            path_results.append(
-                                {
-                                    "path": sp_path,
-                                    "status": "warning",
-                                    "message": "No items found in folder.",
-                                }
-                            )
-                            continue
+                    # -----------------------------------------------------------------
+                    # 3c. Fallbacks if metadata missing
+                    # -----------------------------------------------------------------
+                    # Use filename (without extension) as display name.
+                    base_name = raw_name.rsplit(".", 1)[0]
+                    file_display_name = base_name
 
-                        files_found = 0
-                        found_files = []
+                    # If version is not specified in metadata, try parsing from filename
+                    if not version:
+                        parsed = self.parse_filename(raw_name)
+                        version = parsed.get("version", "Unknown")
 
-                        for item in items:
-                            # Only process files
-                            if "file" not in item:
-                                continue
+                    # If no document type is set, use a generic label
+                    if not doc_type:
+                        doc_type = "Uncategorized"
 
-                            file_name_raw = item["name"]
-                            found_files.append(file_name_raw)
+                    # If no object name is provided, mark as Unassigned
+                    if not object_name:
+                        object_name = "Unassigned"
 
-                            # Parse filename to extract title and version
-                            parsed = self.parse_filename(file_name_raw)
-                            file_display_name = parsed.get("name", file_name_raw)
-                            version = parsed.get("version", "Unknown")
+                    # Map extension to a friendly file type label
+                    file_type = self.get_file_type(raw_name, file_type_mappings)
 
-                            # Map extension to a friendly file type label
-                            file_type = self.get_file_type(
-                                file_name_raw, file_type_mappings
-                            )
+                    # -----------------------------------------------------------------
+                    # 3d. Create or update DocumentationBinding record
+                    # -----------------------------------------------------------------
+                    DocumentationBinding.objects.update_or_create(
+                        file_name=file_display_name,
+                        server_name=object_name,
+                        defaults={
+                            "category": doc_type,
+                            "version": version,
+                            "file_type": file_type,
+                            "sharepoint_url": item["webUrl"],
+                            # Shown as "Type" in the UI (e.g. "Virtual Machine")
+                            "application_name": type_label,
+                        },
+                    )
 
-                            # Create or update DocumentationBinding record
-                            DocumentationBinding.objects.update_or_create(
-                                file_name=file_display_name,
-                                server_name=object_name,
-                                defaults={
-                                    "category": category_display,
-                                    "version": version,
-                                    "file_type": file_type,
-                                    "sharepoint_url": item["webUrl"],
-                                    # Shown as "Type" in the UI
-                                    "application_name": type_label,
-                                },
-                            )
+                    total_files += 1
+                    files_found += 1
 
-                            total_files += 1
-                            files_found += 1
-
-                        if files_found > 0:
-                            path_results.append(
-                                {
-                                    "path": sp_path,
-                                    "status": "success",
-                                    "message": (
-                                        f"Fetched {files_found} files. "
-                                        f"Found Files: {', '.join(found_files)}"
-                                    ),
-                                }
-                            )
-                        else:
-                            path_results.append(
-                                {
-                                    "path": sp_path,
-                                    "status": "warning",
-                                    "message": "No files found.",
-                                }
-                            )
+                # Summary per folder
+                if files_found > 0:
+                    path_results.append(
+                        {
+                            "path": sp_path,
+                            "status": "success",
+                            "message": (
+                                f"Fetched {files_found} files. "
+                                f"Found Files: {', '.join(found_files)}"
+                            ),
+                        }
+                    )
+                else:
+                    path_results.append(
+                        {
+                            "path": sp_path,
+                            "status": "warning",
+                            "message": "No files found.",
+                        }
+                    )
 
             if total_files == 0:
                 return {
@@ -449,12 +534,11 @@ class DocumentationBindingView(View):
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
-
     def parse_filename(self, filename):
         """
         Parse a filename into components.
 
-        New preferred pattern (simple, user-friendly):
+        Preferred pattern (simple, user-friendly):
             "<Title>-v1.2.3.ext"
             "<Title>.ext"
 
@@ -470,9 +554,11 @@ class DocumentationBindingView(View):
         base = filename.rsplit(".", 1)[0]
 
         # ---------------------------------------------------------------------
-        # 1. New simple pattern:  Title[-vX[.Y[.Z]]]
+        # 1. New simple pattern: Title[-vX[.Y[.Z]]]
         # ---------------------------------------------------------------------
-        simple_pattern = r"^(?P<name>.+?)(?:-v(?P<version>[0-9]+(?:\.[0-9]+)*))?$"
+        simple_pattern = (
+            r"^(?P<name>.+?)(?:-v(?P<version>[0-9]+(?:\.[0-9]+)*))?$"
+        )
         match_simple = re.match(simple_pattern, base, flags=re.IGNORECASE)
         if match_simple:
             group_dict = match_simple.groupdict()
@@ -488,7 +574,6 @@ class DocumentationBindingView(View):
             r"(?P<name>[A-Za-z_]+)-"
             r"V(?P<version>[0-9]+\.[0-9]+\.[0-9]+)$"
         )
-
         pattern_server = (
             r"^(?P<server>[A-Za-z0-9]+)-"
             r"(?P<name>[A-Za-z_]+)-"
@@ -512,7 +597,7 @@ class DocumentationBindingView(View):
         Return a friendly file type label based on the file extension.
 
         Uses the configured file_type_mappings, e.g.:
-            ".docx" → "Word Document"
+            ".docx" -> "Word Document"
         """
         filename = filename.lower()
         for ext, label in file_type_mappings.items():
