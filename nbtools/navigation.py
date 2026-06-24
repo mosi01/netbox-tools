@@ -72,7 +72,7 @@ menu = PluginMenu(
                 ),
                 
                 PluginMenuItem(
-                    link='plugins:nbtools:forti_sitebinding_list',
+                    link='plugins:nbtools:fortisitebinding_list',
                     link_text='Forti Site Bindings',
                     auth_required=True,
                     permissions=['nbtools.view_fortisitebinding'],
