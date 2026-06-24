@@ -48,6 +48,12 @@ urlpatterns = [
         name="fortigate_policy_toolset",
     ),
 
+    path(
+        "fortiswitch-port-tool/",
+        views.FortiSwitchPortToolView.as_view(),
+        name="fortiswitch_port_tool",
+    ),
+
     # VM Tool
     path(
         "vm-tool/",
