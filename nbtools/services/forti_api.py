@@ -1,13 +1,12 @@
 """
-forti_api.py
-
-FortiGate API client for nbtools.
+forti_api client for nbtools.forti_api.py
 
 Purpose
 -------
 - Resolve FortiGate connection details from PLUGINS_CONFIG
 - Authenticate using an API token
 - Provide helper methods for reading/updating FortiSwitch ports
+- Normalise Forti API responses into UI-friendly structures
 
 IMPORTANT
 ---------
@@ -19,8 +18,9 @@ one file if Forti API paths differ in your environment.
 
 from __future__ import annotations
 
-import requests
+from typing import Any, Dict, List
 
+import requests
 from django.conf import settings
 
 
@@ -100,7 +100,6 @@ class FortiAPIClient:
                 f"Forti API request failed: {response.status_code} {response.text}"
             )
 
-        # Forti API commonly returns JSON
         return response.json()
 
     # ------------------------------------------------------------------
@@ -159,3 +158,81 @@ class FortiAPIClient:
             f"{switch_identifier}/ports/{port_name}"
         )
         return self._request("PUT", endpoint, data=payload)
+
+    # ------------------------------------------------------------------
+    # Response normalisation helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_vlan_names(vlan_value: Any) -> List[str]:
+        """
+        Convert various Forti VLAN representations into a simple list of names.
+
+        Observed forms include:
+        - list of dicts with {"vlan-name": "..."}
+        - list of plain strings
+        - None / empty
+        """
+        if not vlan_value:
+            return []
+
+        if isinstance(vlan_value, list):
+            names = []
+            for item in vlan_value:
+                if isinstance(item, dict):
+                    names.append(item.get("vlan-name") or item.get("q_origin_key") or "")
+                else:
+                    names.append(str(item))
+            return [name for name in names if name]
+
+        return [str(vlan_value)]
+
+    @classmethod
+    def normalise_port_record(cls, raw_port: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert a raw Forti port record into a UI-friendly structure.
+
+        This deliberately keeps only the fields that matter to the operator.
+        """
+        allowed_vlans = cls._extract_vlan_names(raw_port.get("allowed-vlans"))
+        untagged_vlans = cls._extract_vlan_names(raw_port.get("untagged-vlans"))
+
+        return {
+            "port_name": raw_port.get("port-name", ""),
+            "switch_id": raw_port.get("switch-id", ""),
+            "mode": raw_port.get("mode", ""),
+            "native_vlan": raw_port.get("vlan", ""),
+            "allowed_vlans": allowed_vlans,
+            "untagged_vlans": untagged_vlans,
+            "description": raw_port.get("description", "") or "",
+            "status": raw_port.get("status", ""),
+            "speed": raw_port.get("speed", ""),
+            "poe_status": raw_port.get("poe-status", ""),
+            "edge_port": raw_port.get("edge-port", ""),
+            "dhcp_snooping": raw_port.get("dhcp-snooping", ""),
+            "raw": raw_port,
+        }
+
+    @classmethod
+    def normalise_port_response(cls, raw_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert a single-port Forti response into a normalised UI structure.
+        """
+        results = raw_response.get("results", []) if isinstance(raw_response, dict) else []
+        port_record = results[0] if results else {}
+
+        return {
+            "http_status": raw_response.get("http_status"),
+            "status": raw_response.get("status"),
+            "switch_id": raw_response.get("mkey"),
+            "port": cls.normalise_port_record(port_record) if port_record else None,
+            "raw": raw_response,
+        }
+
+    @classmethod
+    def normalise_ports_response(cls, raw_response: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Convert a multi-port Forti response into a list of normalised rows.
+        """
+        results = raw_response.get("results", []) if isinstance(raw_response, dict) else []
+        return [cls.normalise_port_record(item) for item in results]
+
