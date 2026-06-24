@@ -65,6 +65,11 @@ menu = PluginMenu(
                     link_text='Fortigate Policy Toolset',
                     auth_required=True,
                 ),
+                PluginMenuItem(
+                    link='plugins:nbtools:fortiswitch_port_tool',
+                    link_text='FortiSwitch Port Tool',
+                    auth_required=True,
+                ),
             ),
         ),
 
