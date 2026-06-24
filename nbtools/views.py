@@ -19,15 +19,15 @@ import logging
 # ----------------------------------------------------------------------
 # Existing modular view scripts
 # ----------------------------------------------------------------------
-from .view_scripts.documentation_binding import DocumentationBindingView
-from .view_scripts.documentation_reviewer import DocumentationReviewerView
-from .view_scripts.ip_prefix_checker import IPPrefixCheckerView
-from .view_scripts.prefix_validator import PrefixValidatorView
-from .view_scripts.serial_checker import SerialChecker
-from .view_scripts.vm_tool import VMToolView
+from .view_scripts.Documentation_binding import DocumentationBindingView
+from .view_scripts.IP_prefix_checker import IPPrefixCheckerView
+from .view_scripts.Prefix_validator import PrefixValidatorView
+from .view_scripts.Documentation_reviewer import DocumentationReviewerView
+from .view_scripts.Serial_checker import SerialChecker
+from .view_scripts.VM_tool import VMToolView
 
 # Existing FortiGate / FortiSwitch tools
-from .view_scripts.fortigate_policy_toolset import FortigatePolicyToolsetView
+from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 from .view_scripts.fortiswitch_port_tool import FortiSwitchPortToolView
 
 # FortiSiteBinding CRUD + changelog views
