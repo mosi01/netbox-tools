@@ -22,6 +22,7 @@ from .view_scripts.forti_site_binding_views import (
 )
 
 
+
 #  Commented out for main branch push
 # from .view_scripts.Application_detail import ApplicationDetailView
 # from .view_scripts.Application_list import ApplicationListView
