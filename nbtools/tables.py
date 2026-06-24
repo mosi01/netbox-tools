@@ -19,7 +19,7 @@ from netbox.tables import NetBoxTable
 from .models import Service, Application, FortiSiteBinding
 
 
-lass FortiSiteBindingTable(NetBoxTable):
+class FortiSiteBindingTable(NetBoxTable):
     """
     Table for displaying FortiSiteBinding records.
     """
