@@ -14,6 +14,14 @@ from .view_scripts.VM_tool import VMToolView
 from .view_scripts.fortiswitch_port_tool import FortiSwitchPortToolView
 from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 
+from .view_scripts.forti_site_binding_views import (
+    FortiSiteBindingListView,
+    FortiSiteBindingView,
+    FortiSiteBindingEditView,
+    FortiSiteBindingDeleteView,
+)
+
+
 #  Commented out for main branch push
 # from .view_scripts.Application_detail import ApplicationDetailView
 # from .view_scripts.Application_list import ApplicationListView
