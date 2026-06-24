@@ -115,4 +115,3 @@ class ApplicationForm(NetBoxModelForm):
             "tags",
             "description",
         )
-``
