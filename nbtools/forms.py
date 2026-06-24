@@ -106,9 +106,3 @@ class ApplicationForm(NetBoxModelForm):
             "tags",
             "description",
         )
-
-This file contains forms for:
-- FortiSiteBinding
-- Service
-- Application
-
