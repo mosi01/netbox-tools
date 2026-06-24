@@ -14,6 +14,7 @@ from .models import Application, Service, FortiSiteBinding
 
 
 
+
 class FortiSiteBindingForm(NetBoxModelForm):
     """
     Form for creating/updating Forti site bindings.
@@ -27,8 +28,29 @@ class FortiSiteBindingForm(NetBoxModelForm):
             "credential_alias",
             "enabled",
             "notes",
-            "comments", 
         )
+
+    def save(self, commit=True):
+        """
+        Override save to ensure NetBox 'comments' field is set.
+
+        NetBoxModel includes a 'comments' DB field that is NOT
+        nullable, but it is not exposed in the form.
+
+        Without this, inserts fail with:
+        null value in column "comments"
+        """
+
+        instance = super().save(commit=False)
+
+
+        if not getattr(instance, "comments", None):
+            instance.comments = ""
+
+        if commit:
+            instance.save()
+
+        return instance
 
     def clean(self):
         """
