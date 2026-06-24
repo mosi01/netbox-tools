@@ -11,6 +11,7 @@ Compatible with NetBox 4.5.0
 """
 
 from django.db import models
+from django.urls import reverse
 
 # NetBox base model
 from netbox.models import NetBoxModel
