@@ -56,34 +56,60 @@ urlpatterns = [
     ),
 
     
-    # Forti site bindings
+    
+    #------------------------------------------------------------------
+    # LIST
+    # ------------------------------------------------------------------
     path(
         "forti-bindings/",
         views.FortiSiteBindingListView.as_view(),
         name="fortisitebinding_list",
     ),
+
+    # ------------------------------------------------------------------
+    # ADD
+    # ------------------------------------------------------------------
     path(
         "forti-bindings/add/",
         views.FortiSiteBindingEditView.as_view(),
         name="fortisitebinding_add",
     ),
+
+    # ------------------------------------------------------------------
+    # DETAIL
+    # ------------------------------------------------------------------
     path(
         "forti-bindings/<int:pk>/",
         views.FortiSiteBindingView.as_view(),
         name="fortisitebinding",
     ),
+
+    # ------------------------------------------------------------------
+    # EDIT
+    # ------------------------------------------------------------------
     path(
         "forti-bindings/<int:pk>/edit/",
         views.FortiSiteBindingEditView.as_view(),
         name="fortisitebinding_edit",
     ),
+
+    # ------------------------------------------------------------------
+    # DELETE
+    # ------------------------------------------------------------------
     path(
         "forti-bindings/<int:pk>/delete/",
         views.FortiSiteBindingDeleteView.as_view(),
         name="fortisitebinding_delete",
     ),
 
-
+    # ------------------------------------------------------------------
+    # CHANGELOG 
+    # ------------------------------------------------------------------
+    path(
+        "forti-bindings/<int:pk>/changelog/",
+        views.FortiSiteBindingChangeLogView.as_view(),
+        name="fortisitebinding_changelog",
+    ),
 
 
     # VM Tool
