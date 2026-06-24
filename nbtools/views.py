@@ -11,6 +11,7 @@ from .view_scripts.Prefix_validator import PrefixValidatorView
 from .view_scripts.Documentation_reviewer import DocumentationReviewerView
 from .view_scripts.Serial_checker import SerialChecker
 from .view_scripts.VM_tool import VMToolView
+from .view_scripts.fortiswitch_port_tool import FortiSwitchPortToolView
 from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 
 #  Commented out for main branch push
