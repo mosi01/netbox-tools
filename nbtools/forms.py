@@ -8,15 +8,14 @@ This file contains forms for:
 - Service
 - Application
 
-NetBox version reference:
-- Compatible with NetBox 4.5.x / 4.6.x style plugin forms
+NetBox reference
+----------------
+- Uses NetBoxModelForm, which is the documented base form class for
+  creating and editing NetBox models in plugins.
+- Uses CommentField for the built-in comments field, as documented by
+  NetBox for plugin model forms.
 
-Important
----------
-For models inheriting from NetBoxModel, NetBox documents the use of
-CommentField when exposing the built-in comments field in a model form.
-This is the correct way to avoid NULL comments issues during object
-creation/editing.
+Compatible with NetBox 4.5.x / 4.6.x style plugin forms.
 """
 
 from django import forms
@@ -30,12 +29,13 @@ class FortiSiteBindingForm(NetBoxModelForm):
     """
     Form for creating and editing FortiSiteBinding objects.
 
-    Why comments is declared here
-    -----------------------------
-    FortiSiteBinding inherits from NetBoxModel. NetBox documents the use
-    of CommentField on NetBoxModelForm when handling comments in object
-    create/edit forms. This ensures the field is populated correctly and
-    avoids NULL database inserts for the comments column.
+    Notes
+    -----
+    - FortiSiteBinding inherits from NetBoxModel.
+    - NetBox documents the use of CommentField when handling the
+      built-in comments field in a model form.
+    - The comments field should be included on the form; NetBox notes
+      that comment fields render last automatically. [1](https://netbox.readthedocs.io/en/stable/plugins/development/forms/)
     """
 
     # ------------------------------------------------------------------
@@ -58,16 +58,19 @@ class FortiSiteBindingForm(NetBoxModelForm):
         Validate that the selected credential alias exists in
         PLUGINS_CONFIG['nbtools']['forti']['sites'].
 
-        This keeps the database binding aligned with runtime plugin config.
+        FIX:
+        - super().clean() may return None in this execution path, so
+          always coerce to an empty dict before using .get().
         """
-        cleaned_data = super().clean()
+        cleaned_data = super().clean() or {}
 
         alias = cleaned_data.get("credential_alias")
 
         from django.conf import settings
 
-        config = settings.PLUGINS_CONFIG.get("nbtools", {}).get("forti", {})
-        sites = config.get("sites", {})
+        plugin_config = settings.PLUGINS_CONFIG.get("nbtools", {}) or {}
+        forti_config = plugin_config.get("forti", {}) or {}
+        sites = forti_config.get("sites", {}) or {}
 
         if alias and alias not in sites:
             raise forms.ValidationError(
@@ -112,3 +115,4 @@ class ApplicationForm(NetBoxModelForm):
             "tags",
             "description",
         )
+``
