@@ -16,8 +16,7 @@ class Migration(migrations.Migration):
     # without the ".py" extension.
     # ------------------------------------------------------------------
     dependencies = [
-        ("dcim", "0194_remove_svg_tag"),  # Keep this as generated against your NetBox branch if needed
-        ("nbtools", "0001_initial"),      # CHANGE this if your latest nbtools migration is different
+        ("nbtools", "0007_initial"),      # CHANGE this if your latest nbtools migration is different
     ]
 
     operations = [
