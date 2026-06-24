@@ -19,6 +19,8 @@ Compatible with NetBox 4.5.x / 4.6.x style plugin forms.
 """
 
 from django import forms
+from django.conf import settings
+
 from netbox.forms import NetBoxModelForm
 from utilities.forms.fields import CommentField
 
@@ -33,9 +35,7 @@ class FortiSiteBindingForm(NetBoxModelForm):
     -----
     - FortiSiteBinding inherits from NetBoxModel.
     - NetBox documents the use of CommentField when handling the
-      built-in comments field in a model form.
-    - The comments field should be included on the form; NetBox notes
-      that comment fields render last automatically. [1](https://netbox.readthedocs.io/en/stable/plugins/development/forms/)
+      built-in comments field in a model form. [1](https://docs.python.org/3/library/ipaddress.html)
     """
 
     # ------------------------------------------------------------------
@@ -53,29 +53,56 @@ class FortiSiteBindingForm(NetBoxModelForm):
             "comments",
         )
 
-        def clean(self):
-            """
-            Validate that the selected credential alias exists in
-            PLUGINS_CONFIG['nbtools']['forti']['sites'].
-            """
+    def clean(self):
+        """
+        Validate that the selected credential alias exists in
+        PLUGINS_CONFIG['nbtools']['forti']['sites'].
 
-            super().clean()
+        IMPORTANT
+        ---------
+        Do not assign the return value of super().clean() directly and
+        rely on that object. Django/NetBox populates self.cleaned_data.
+        """
+        super().clean()
 
-            alias = self.cleaned_data.get("credential_alias")
+        alias = self.cleaned_data.get("credential_alias")
 
-            from django.conf import settings
+        plugin_config = settings.PLUGINS_CONFIG.get("nbtools", {}) or {}
+        forti_config = plugin_config.get("forti", {}) or {}
+        sites = forti_config.get("sites", {}) or {}
 
-            plugin_config = settings.PLUGINS_CONFIG.get("nbtools", {}) or {}
-            forti_config = plugin_config.get("forti", {}) or {}
-            sites = forti_config.get("sites", {}) or {}
+        if alias and alias not in sites:
+            raise forms.ValidationError(
+                f"Alias '{alias}' does not exist in PLUGINS_CONFIG."
+            )
 
-            if alias and alias not in sites:
-                raise forms.ValidationError(
-                    f"Alias '{alias}' does not exist in PLUGINS_CONFIG."
-                )
+        return self.cleaned_data
 
-            return self.cleaned_data
+    def save(self, commit=True):
+        """
+        Save the FortiSiteBinding while ensuring comments is never NULL.
 
+        Why this is needed
+        ------------------
+        Even though the form exposes a CommentField, an empty submission can
+        still resolve to None in practice. The database column for comments on
+        a NetBoxModel-backed object is not nullable in your current schema, so
+        we must normalise None -> "" before saving.
+        """
+        instance = super().save(commit=False)
+
+        # Normalize comments so PostgreSQL never receives NULL
+        if getattr(instance, "comments", None) is None:
+            instance.comments = ""
+
+        if commit:
+            instance.save()
+
+            # Save many-to-many data if present (safe practice for ModelForms)
+            if hasattr(self, "save_m2m"):
+                self.save_m2m()
+
+        return instance
 
 
 class ServiceForm(NetBoxModelForm):
