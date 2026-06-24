@@ -548,4 +548,3 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             "live_state": live_state,
             "status": "completed",
         }
-``
