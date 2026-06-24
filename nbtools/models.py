@@ -208,20 +208,14 @@ class Application(NetBoxModel):
 # ---------------------------------------------------------------------------
 # NEW: FortiSiteBinding
 # ---------------------------------------------------------------------------
+
 class FortiSiteBinding(NetBoxModel):
     """
     Bind a NetBox site to a FortiGate connection alias.
 
-    Why this model exists
-    ---------------------
-    NetBox plugin runtime settings (such as API tokens) belong in
-    PLUGINS_CONFIG, not in the database. This model stores only the
-    site-level mapping needed by the UI/controller layer.
-
-    Example flow
-    ------------
-    Interface -> Device -> Site -> FortiSiteBinding -> credential_alias
-    -> PLUGINS_CONFIG["nbtools"]["forti"]["sites"][credential_alias]
+    Runtime FortiGate credentials should live in PLUGINS_CONFIG.
+    This model only stores the relationship:
+        NetBox Site -> credential_alias
     """
 
     site = models.OneToOneField(
@@ -260,3 +254,25 @@ class FortiSiteBinding(NetBoxModel):
 
     def __str__(self):
         return f"{self.site.name} -> {self.credential_alias}"
+
+    # ------------------------------------------------------------------
+    # URL helpers
+    # ------------------------------------------------------------------
+    def get_absolute_url(self):
+        """
+        Return the plugin object detail URL.
+        """
+        return reverse("plugins:nbtools:fortisitebinding", args=[self.pk])
+
+    def get_edit_url(self):
+        """
+        Return the plugin object edit URL.
+        """
+        return reverse("plugins:nbtools:fortisitebinding_edit", args=[self.pk])
+
+    def get_delete_url(self):
+        """
+        Return the plugin object delete URL.
+        """
+        return reverse("plugins:nbtools:fortisitebinding_delete", args=[self.pk])
+
