@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-tools"
-version = "2.0.0"
+version = "2.0.1"
 description = "Collection of tools for NetBox"
 authors = [
     { name = "Simon Möller Ahlquist", email = "simon.moller@lindab.com" },
