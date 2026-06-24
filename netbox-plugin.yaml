@@ -1,6 +1,6 @@
 name: nbtools
 package: nbtools
-version: 2.0.1
+version: 2.1.0
 author: Simon Möller Ahlquist
 description: Collection of tools for NetBox
 install_method: pip
