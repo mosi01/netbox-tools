@@ -55,6 +55,35 @@ urlpatterns = [
         name="fortiswitch_port_tool",
     ),
 
+    
+    # Forti site bindings
+    path(
+        "forti-bindings/",
+        views.FortiSiteBindingListView.as_view(),
+        name="forti_sitebinding_list",
+    ),
+    path(
+        "forti-bindings/add/",
+        views.FortiSiteBindingEditView.as_view(),
+        name="forti_sitebinding_add",
+    ),
+    path(
+        "forti-bindings/<int:pk>/",
+        views.FortiSiteBindingView.as_view(),
+        name="forti_sitebinding",
+    ),
+    path(
+        "forti-bindings/<int:pk>/edit/",
+        views.FortiSiteBindingEditView.as_view(),
+        name="forti_sitebinding_edit",
+    ),
+    path(
+        "forti-bindings/<int:pk>/delete/",
+        views.FortiSiteBindingDeleteView.as_view(),
+        name="forti_sitebinding_delete",
+    ),
+
+
 
     # VM Tool
     path(
