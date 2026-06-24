@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-tools"
-version = "2.0.1"
+version = "2.1.0"
 description = "Collection of tools for NetBox"
 authors = [
     { name = "Simon Möller Ahlquist", email = "simon.moller@lindab.com" },
@@ -25,4 +25,4 @@ where = ["."]
 include = ["nbtools*"]
 
 [tool.setuptools.package-data]
-"nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py", "view_scripts/*.py", "api/*.py"]
+"nbtools" = ["*", "templates/**/*", "static/**/*", "migrations/*.py", "view_scripts/*.py", "api/*.py", "services/*.py"]
