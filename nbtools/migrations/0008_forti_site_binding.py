@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
     # without the ".py" extension.
     # ------------------------------------------------------------------
     dependencies = [
-        ("nbtools", "0007_initial"),      # CHANGE this if your latest nbtools migration is different
+        ("nbtools", "0007_sync_service_application_fields"),      # CHANGE this if your latest nbtools migration is different
     ]
 
     operations = [
