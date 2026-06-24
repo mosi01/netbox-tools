@@ -1,0 +1,83 @@
+{% extends 'generic/object.html' %}
+
+{% load helpers %}
+
+{% block content %}
+
+<div class="row">
+
+  <!-- LEFT COLUMN -->
+  <div class="col col-md-6">
+
+    <div class="card">
+      <h5 class="card-header">Forti Site Binding</h5>
+
+      <table class="table table-hover attr-table mb-0">
+
+        <tr>
+          <th scope="row">Site</th>
+          <td>
+            <a href="{{ object.site.get_absolute_url }}">
+              {{ object.site }}
+            </a>
+          </td>
+        </tr>
+
+        <tr>
+          <th scope="row">Credential Alias</th>
+          <td>{{ object.credential_alias }}</td>
+        </tr>
+
+        <tr>
+          <th scope="row">Enabled</th>
+          <td>
+            {% if object.enabled %}
+              <span class="badge bg-success">Yes</span>
+            {% else %}
+              <span class="badge bg-danger">No</span>
+            {% endif %}
+          </td>
+        </tr>
+
+        <tr>
+          <th scope="row">Notes</th>
+          <td>{{ object.notes|default:"-" }}</td>
+        </tr>
+
+        <tr>
+          <th scope="row">Comments</th>
+          <td>{{ object.comments|default:"-" }}</td>
+        </tr>
+
+      </table>
+    </div>
+
+  </div>
+
+
+  <!-- RIGHT COLUMN -->
+  <div class="col col-md-6">
+
+    <div class="card">
+      <h5 class="card-header">Metadata</h5>
+
+      <table class="table table-hover attr-table mb-0">
+
+        <tr>
+          <th scope="row">Created</th>
+          <td>{{ object.created }}</td>
+        </tr>
+
+        <tr>
+          <th scope="row">Last Updated</th>
+          <td>{{ object.last_updated }}</td>
+        </tr>
+
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}
