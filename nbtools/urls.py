@@ -1,5 +1,7 @@
 """
-urls.py NetBox 4.5.x / 4.6.x plugin URL patterns.urls.py
+urls.py
+
+NetBox 4.5.x / 4.6.x plugin URL patterns for nbtools.
 """
 
 from django.urls import path
@@ -60,7 +62,7 @@ urlpatterns = [
     ),
 
     # ------------------------------------------------------------------
-    # FortiSwitch Port Tool
+    # FortiSwitch Port Tool (bulk-capable custom page)
     # ------------------------------------------------------------------
     path(
         "fortiswitch-port-tool/",
@@ -119,68 +121,4 @@ urlpatterns = [
         views.DocumentationBindingView.as_view(),
         name="documentation_binding",
     ),
-
-    # ------------------------------------------------------------------
-    # Applications & Services (still commented out)
-    # ------------------------------------------------------------------
-    # path(
-    #     "applications/",
-    #     views.ApplicationListView.as_view(),
-    #     name="application_list",
-    # ),
-    # path(
-    #     "applications/add/",
-    #     views.ApplicationEditView.as_view(),
-    #     name="application_add",
-    # ),
-    # path(
-    #     "applications/<int:pk>/",
-    #     views.ApplicationDetailView.as_view(),
-    #     name="application",
-    # ),
-    # path(
-    #     "applications/<int:pk>/edit/",
-    #     views.ApplicationEditView.as_view(),
-    #     name="application_edit",
-    # ),
-    # path(
-    #     "applications/<int:pk>/delete/",
-    #     views.ApplicationDeleteView.as_view(),
-    #     name="application_delete",
-    # ),
-    # path(
-    #     "applications/<int:pk>/changelog/",
-    #     views.ApplicationChangeLogView.as_view(),
-    #     name="application_changelog",
-    # ),
-    # path(
-    #     "services/",
-    #     views.ServiceListView.as_view(),
-    #     name="service_list",
-    # ),
-    # path(
-    #     "services/add/",
-    #     views.ServiceEditView.as_view(),
-    #     name="service_add",
-    # ),
-    # path(
-    #     "services/<int:pk>/",
-    #     views.ServiceDetailView.as_view(),
-    #     name="service",
-    # ),
-    # path(
-    #     "services/<int:pk>/edit/",
-    #     views.ServiceEditView.as_view(),
-    #     name="service_edit",
-    # ),
-    # path(
-    #     "services/<int:pk>/delete/",
-    #     views.ServiceDeleteView.as_view(),
-    #     name="service_delete",
-    # ),
-    # path(
-    #     "services/<int:pk>/changelog/",
-    #     views.ServiceChangeLogView.as_view(),
-    #     name="service_changelog",
-    # ),
 ]
