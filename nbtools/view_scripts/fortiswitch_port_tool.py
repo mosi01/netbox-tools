@@ -1,5 +1,5 @@
 """
-fortigate_policy_toolset.py
+fortiswitch_port_tool.py
 
 Single-page FortiGate / FortiSwitch port tool for NetBox 4.5.0 plugin.
 
@@ -28,7 +28,7 @@ from dcim.models import Device, Interface, Site
 logger = logging.getLogger("nbtools")
 
 
-class FortigatePolicyToolsetView(LoginRequiredMixin, View):
+class FortiSwitchPortToolView(LoginRequiredMixin, View):
     """
     Single-page Forti tool (controller view)
 
