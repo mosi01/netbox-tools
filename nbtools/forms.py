@@ -53,28 +53,28 @@ class FortiSiteBindingForm(NetBoxModelForm):
             "comments",
         )
 
-    def clean(self):
-    """
-    Validate that the selected credential alias exists in
-    PLUGINS_CONFIG['nbtools']['forti']['sites'].
-    """
+        def clean(self):
+            """
+            Validate that the selected credential alias exists in
+            PLUGINS_CONFIG['nbtools']['forti']['sites'].
+            """
 
-    super().clean()
+            super().clean()
 
-    alias = self.cleaned_data.get("credential_alias")
+            alias = self.cleaned_data.get("credential_alias")
 
-    from django.conf import settings
+            from django.conf import settings
 
-    plugin_config = settings.PLUGINS_CONFIG.get("nbtools", {}) or {}
-    forti_config = plugin_config.get("forti", {}) or {}
-    sites = forti_config.get("sites", {}) or {}
+            plugin_config = settings.PLUGINS_CONFIG.get("nbtools", {}) or {}
+            forti_config = plugin_config.get("forti", {}) or {}
+            sites = forti_config.get("sites", {}) or {}
 
-    if alias and alias not in sites:
-        raise forms.ValidationError(
-            f"Alias '{alias}' does not exist in PLUGINS_CONFIG."
-        )
+            if alias and alias not in sites:
+                raise forms.ValidationError(
+                    f"Alias '{alias}' does not exist in PLUGINS_CONFIG."
+                )
 
-    return self.cleaned_data
+            return self.cleaned_data
 
 
 
