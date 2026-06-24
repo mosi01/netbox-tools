@@ -60,28 +60,29 @@ urlpatterns = [
     path(
         "forti-bindings/",
         views.FortiSiteBindingListView.as_view(),
-        name="forti_sitebinding_list",
+        name="fortisitebinding_list",
     ),
     path(
         "forti-bindings/add/",
         views.FortiSiteBindingEditView.as_view(),
-        name="forti_sitebinding_add",
+        name="fortisitebinding_add",
     ),
     path(
         "forti-bindings/<int:pk>/",
         views.FortiSiteBindingView.as_view(),
-        name="forti_sitebinding",
+        name="fortisitebinding",
     ),
     path(
         "forti-bindings/<int:pk>/edit/",
         views.FortiSiteBindingEditView.as_view(),
-        name="forti_sitebinding_edit",
+        name="fortisitebinding_edit",
     ),
     path(
         "forti-bindings/<int:pk>/delete/",
         views.FortiSiteBindingDeleteView.as_view(),
-        name="forti_sitebinding_delete",
+        name="fortisitebinding_delete",
     ),
+
 
 
 
