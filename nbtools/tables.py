@@ -15,10 +15,24 @@ NetBox version target: 4.5.0
 """
 
 import django_tables2 as tables
-
 from netbox.tables import NetBoxTable
+from .models import Service, Application, FortiSiteBinding
 
-from .models import Service, Application
+
+lass FortiSiteBindingTable(NetBoxTable):
+    """
+    Table for displaying FortiSiteBinding records.
+    """
+
+    site = tables.Column(linkify=True)
+    credential_alias = tables.Column()
+    enabled = tables.BooleanColumn()
+
+    class Meta(NetBoxTable.Meta):
+        model = FortiSiteBinding
+        fields = ("site", "credential_alias", "enabled", "notes", "tags")
+
+
 
 
 class ServiceTable(NetBoxTable):
