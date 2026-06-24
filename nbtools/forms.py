@@ -31,11 +31,11 @@ class FortiSiteBindingForm(NetBoxModelForm):
     """
     Form for creating and editing FortiSiteBinding objects.
 
-    Notes
-    -----
-    - FortiSiteBinding inherits from NetBoxModel.
-    - NetBox documents the use of CommentField when handling the
-      built-in comments field in a model form. [1](https://docs.python.org/3/library/ipaddress.html)
+    Why this form includes CommentField
+    -----------------------------------
+    NetBox documents the use of CommentField for comments on plugin model
+    forms based on NetBoxModel. This is the correct pattern for handling
+    comments in create/edit forms. [1](https://docs.python.org/3/library/ipaddress.html)
     """
 
     # ------------------------------------------------------------------
@@ -58,10 +58,9 @@ class FortiSiteBindingForm(NetBoxModelForm):
         Validate that the selected credential alias exists in
         PLUGINS_CONFIG['nbtools']['forti']['sites'].
 
-        IMPORTANT
-        ---------
-        Do not assign the return value of super().clean() directly and
-        rely on that object. Django/NetBox populates self.cleaned_data.
+        Important:
+        - Call super().clean() to populate self.cleaned_data
+        - Use self.cleaned_data directly
         """
         super().clean()
 
@@ -80,25 +79,29 @@ class FortiSiteBindingForm(NetBoxModelForm):
 
     def save(self, commit=True):
         """
-        Save the FortiSiteBinding while ensuring comments is never NULL.
+        Save the FortiSiteBinding while guaranteeing that comments is never NULL.
 
-        Why this is needed
-        ------------------
-        Even though the form exposes a CommentField, an empty submission can
-        still resolve to None in practice. The database column for comments on
-        a NetBoxModel-backed object is not nullable in your current schema, so
-        we must normalise None -> "" before saving.
+        Why this is necessary
+        ---------------------
+        Your traceback shows inserts are still reaching PostgreSQL with
+        comments = NULL. To prevent that reliably, always set the instance
+        field directly from cleaned_data and coerce empty input to "" before
+        saving.
         """
         instance = super().save(commit=False)
 
-        # Normalize comments so PostgreSQL never receives NULL
-        if getattr(instance, "comments", None) is None:
-            instance.comments = ""
+        # --------------------------------------------------------------
+        # Critical fix:
+        # Always drive the model value from the submitted form value.
+        # If comments is empty or missing, force an empty string rather
+        # than letting NULL reach the database.
+        # --------------------------------------------------------------
+        instance.comments = self.cleaned_data.get("comments") or ""
 
         if commit:
             instance.save()
 
-            # Save many-to-many data if present (safe practice for ModelForms)
+            # Save many-to-many relations if present
             if hasattr(self, "save_m2m"):
                 self.save_m2m()
 
