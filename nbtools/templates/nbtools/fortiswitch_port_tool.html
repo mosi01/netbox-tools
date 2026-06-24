@@ -14,204 +14,275 @@
         FortiSwitch Port Tool
     </h2>
 
-    {# ================================================================ #}
-    {# ERROR MESSAGES                                                  #}
-    {# ================================================================ #}
+    {# ============================================================ #}
+    {# ERRORS                                                       #}
+    {# ============================================================ #}
     {% if errors_list %}
-        <div class="alert alert-danger">
-            <strong>Errors:</strong>
-            <ul class="mb-0">
-                {% for err in errors_list %}
-                    <li>{{ err }}</li>
-                {% endfor %}
-            </ul>
-        </div>
+    <div class="alert alert-danger">
+        <strong>Errors:</strong>
+        <ul class="mb-0">
+            {% for err in errors_list %}
+                <li>{{ err }}</li>
+            {% endfor %}
+        </ul>
+    </div>
     {% endif %}
 
-    {# ================================================================ #}
-    {# WARNINGS                                                        #}
-    {# ================================================================ #}
+    {# ============================================================ #}
+    {# WARNINGS                                                     #}
+    {# ============================================================ #}
     {% if warnings_list %}
-        <div class="alert alert-warning">
-            <strong>Warnings:</strong>
-            <ul class="mb-0">
-                {% for warn in warnings_list %}
-                    <li>{{ warn }}</li>
-                {% endfor %}
-            </ul>
-        </div>
+    <div class="alert alert-warning">
+        <strong>Warnings:</strong>
+        <ul class="mb-0">
+            {% for warn in warnings_list %}
+                <li>{{ warn }}</li>
+            {% endfor %}
+        </ul>
+    </div>
     {% endif %}
 
-    {# ================================================================ #}
-    {# MAIN FORM                                                       #}
-    {# ================================================================ #}
     <form method="post">
         {% csrf_token %}
 
-        <div class="card mb-4">
-            <div class="card-header">
-                <strong>Selection</strong>
-            </div>
+        {# ============================================================ #}
+        {# SELECTION                                                   #}
+        {# ============================================================ #}
+        <div class="card mb-3">
+            <div class="card-header"><strong>Selection</strong></div>
             <div class="card-body">
 
                 <div class="row">
 
-                    {# ----------------- Site ----------------- #}
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">Site</label>
                         <select name="site_id" class="form-select" onchange="this.form.submit()">
                             <option value="">-- Select Site --</option>
                             {% for site in sites %}
                                 <option value="{{ site.id }}"
-                                    {% if selected_site and selected_site.id == site.id %}selected{% endif %}
-                                >
+                                    {% if selected_site and selected_site.id == site.id %}selected{% endif %}>
                                     {{ site.name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    {# ----------------- Device ----------------- #}
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                         <label class="form-label">Device</label>
                         <select name="device_id" class="form-select" onchange="this.form.submit()">
                             <option value="">-- Select Device --</option>
                             {% for device in devices %}
                                 <option value="{{ device.id }}"
-                                    {% if selected_device and selected_device.id == device.id %}selected{% endif %}
-                                >
+                                    {% if selected_device and selected_device.id == device.id %}selected{% endif %}>
                                     {{ device.name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    {# ----------------- Interface ----------------- #}
-                    <div class="col-md-4">
-                        <label class="form-label">Interface</label>
-                        <select name="interface_id" class="form-select">
-                            <option value="">-- Select Interface --</option>
-                            {% for intf in interfaces %}
-                                <option value="{{ intf.id }}"
-                                    {% if selected_interface and selected_interface.id == intf.id %}selected{% endif %}
-                                >
-                                    {{ intf.name }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
                 </div>
+
             </div>
         </div>
 
-        {# ================================================================ #}
-        {# CONFIGURATION SECTION                                           #}
-        {# ================================================================ #}
-        <div class="card mb-4">
+        {# ============================================================ #}
+        {# PORT TABLE (NEW CORE FEATURE)                              #}
+        {# ============================================================ #}
+        {% if port_rows %}
+
+        <div class="card mb-3">
             <div class="card-header">
-                <strong>Port Configuration</strong>
+                <strong>Switch Ports</strong>
             </div>
+
             <div class="card-body">
 
-                <div class="row">
+                <table class="table table-hover table-bordered table-sm">
 
-                    {# Mode #}
-                    <div class="col-md-3">
-                        <label class="form-label">Mode</label>
-                        <select name="mode" class="form-select">
-                            <option value="">-- Select --</option>
-                            <option value="access"
-                                {% if submitted_data.mode == "access" %}selected{% endif %}
-                            >Access</option>
-                            <option value="trunk"
-                                {% if submitted_data.mode == "trunk" %}selected{% endif %}
-                            >Trunk</option>
-                        </select>
-                    </div>
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px"></th>
+                            <th>Port</th>
+                            <th>Mode</th>
+                            <th>Native VLAN</th>
+                            <th>Allowed VLANs</th>
+                            <th>Description</th>
+                            <th style="width:120px">Status</th>
+                        </tr>
+                    </thead>
 
-                    {# Native VLAN #}
-                    <div class="col-md-3">
-                        <label class="form-label">Native VLAN</label>
-                        <input type="text" name="native_vlan" class="form-control"
-                               value="{{ submitted_data.native_vlan }}">
-                    </div>
+                    <tbody>
+                        {% for p in port_rows %}
 
-                    {# Allowed VLANs #}
-                    <div class="col-md-3">
-                        <label class="form-label">Allowed VLANs</label>
-                        <input type="text" name="allowed_vlans" class="form-control"
-                               placeholder="10,20,30-40"
-                               value="{{ submitted_data.allowed_vlans }}">
-                    </div>
+                        <tr>
 
-                    {# Description #}
-                    <div class="col-md-3">
-                        <label class="form-label">Description</label>
-                        <input type="text" name="description" class="form-control"
-                               value="{{ submitted_data.description }}">
-                    </div>
+                            {# SELECT #}
+                            <td>
+                                <input type="checkbox"
+                                       name="selected_ports"
+                                       value="{{ p.port_name }}">
+                            </td>
 
-                </div>
+                            {# PORT INFO #}
+                            <td>
+                                <strong>{{ p.port_name }}</strong><br>
 
-                <div class="row mt-3">
-                    <div class="col-md-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox"
-                                   name="dry_run"
-                                   {% if submitted_data.dry_run %}checked{% endif %}>
-                            <label class="form-check-label">Dry Run</label>
-                        </div>
-                    </div>
+                                {% if p.uplink_candidate %}
+                                    <span class="badge bg-danger">Uplink?</span>
+                                {% endif %}
+
+                                {% if p.netbox_connected %}
+                                    <span class="badge bg-warning">Connected</span>
+                                {% endif %}
+                            </td>
+
+                            {# MODE #}
+                            <td>
+                                <select name="mode__{{ p.port_name }}" class="form-select form-select-sm">
+                                    <option value="">--</option>
+                                    <option value="access" {% if p.mode == "access" %}selected{% endif %}>Access</option>
+                                    <option value="trunk" {% if p.mode == "trunk" %}selected{% endif %}>Trunk</option>
+                                </select>
+                            </td>
+
+                            {# NATIVE VLAN #}
+                            <td>
+                                <input type="text"
+                                       name="native_vlan__{{ p.port_name }}"
+                                       class="form-control form-control-sm"
+                                       value="{{ p.native_vlan }}">
+                            </td>
+
+                            {# ALLOWED VLANS #}
+                            <td>
+                                <input type="text"
+                                       name="allowed_vlans__{{ p.port_name }}"
+                                       class="form-control form-control-sm"
+                                       value="{{ p.allowed_vlans|join:',' }}">
+                            </td>
+
+                            {# DESCRIPTION #}
+                            <td>
+                                <input type="text"
+                                       name="description__{{ p.port_name }}"
+                                       class="form-control form-control-sm"
+                                       value="{{ p.description }}">
+                            </td>
+
+                            {# STATUS #}
+                            <td>
+                                {{ p.status }}
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox"
+                           name="dry_run">
+                    <label class="form-check-label">Preview only (Dry Run)</label>
                 </div>
 
             </div>
         </div>
 
-        {# ================================================================ #}
-        {# ACTION BUTTONS                                                  #}
-        {# ================================================================ #}
-        <div class="card mb-4">
+        {# ============================================================ #}
+        {# ACTIONS                                                     #}
+        {# ============================================================ #}
+        <div class="card mb-3">
             <div class="card-body text-center">
 
                 <button type="submit" name="action" value="validate" class="btn btn-info">
-                    Validate
-                </button>
-
-                <button type="submit" name="action" value="dry_run" class="btn btn-primary">
-                    Dry Run
+                    Validate Selected
                 </button>
 
                 <button type="submit" name="action" value="deploy" class="btn btn-success">
-                    Deploy
+                    Deploy Selected
                 </button>
 
                 <button type="submit" name="action" value="sync" class="btn btn-secondary">
-                    Sync
+                    Sync Selected
                 </button>
 
             </div>
         </div>
 
+        {% endif %}
+
     </form>
 
-    {# ================================================================ #}
-    {# RESULT PANEL                                                     #}
-    {# ================================================================ #}
+
+    {# ============================================================ #}
+    {# RESULT PANEL (STRUCTURED ✅)                                #}
+    {# ============================================================ #}
     {% if result %}
-        <div class="card">
-            <div class="card-header">
-                <strong>Result</strong>
-            </div>
-            <div class="card-body">
 
-                <pre style="background:#1e1e1e; color:#dcdcdc; padding:15px;">
-{{ result|safe|json_script:"resultData" }}
-{{ result }}
-                </pre>
-
-            </div>
+    <div class="card">
+        <div class="card-header">
+            <strong>Result Summary</strong>
         </div>
+
+        <div class="card-body">
+
+            <div class="mb-3">
+                <strong>Action:</strong> {{ result.action }}<br>
+                <strong>Device:</strong> {{ result.device_name }}<br>
+                <strong>Total Ports:</strong> {{ result.summary.total_ports }}<br>
+                <strong>Changes Needed:</strong> {{ result.summary.ports_with_differences }}
+            </div>
+
+            <hr>
+
+            {% for r in result.port_results %}
+            <div class="mb-3 p-2 border rounded">
+
+                <strong>{{ r.port_name }}</strong>
+                <span class="badge bg-secondary">{{ r.status }}</span>
+
+                {% if r.warnings %}
+                    <div class="text-warning">
+                        ⚠ {{ r.warnings|join:", " }}
+                    </div>
+                {% endif %}
+
+                {% if r.errors %}
+                    <div class="text-danger">
+                        ❌ {{ r.errors|join:", " }}
+                    </div>
+                {% endif %}
+
+                {% if r.diffs %}
+                <table class="table table-sm mt-2">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Desired</th>
+                            <th>Actual</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in r.diffs %}
+                        <tr>
+                            <td>{{ d.field }}</td>
+                            <td>{{ d.desired }}</td>
+                            <td>{{ d.actual }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <small class="text-muted">No differences</small>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+
     {% endif %}
 
 </div>
