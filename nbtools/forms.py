@@ -13,24 +13,26 @@ from tenancy.models import Contact
 from .models import Application, Service, FortiSiteBinding
 
 
+
 class FortiSiteBindingForm(NetBoxModelForm):
     """
-    Form for creating and editing Forti site bindings.
+    Form for creating/updating Forti site bindings.
     """
 
     class Meta:
         model = FortiSiteBinding
+
         fields = (
             "site",
             "credential_alias",
             "enabled",
             "notes",
+            "comments", 
         )
 
     def clean(self):
         """
-        Optional validation:
-        - Ensure alias exists in PLUGINS_CONFIG
+        Validate alias exists in PLUGINS_CONFIG
         """
         super().clean()
 
