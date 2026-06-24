@@ -70,6 +70,14 @@ menu = PluginMenu(
                     link_text='FortiSwitch Port Tool',
                     auth_required=True,
                 ),
+                
+                PluginMenuItem(
+                    link='plugins:nbtools:forti_sitebinding_list',
+                    link_text='Forti Site Bindings',
+                    auth_required=True,
+                    permissions=['nbtools.view_fortisitebinding'],
+                ),
+
             ),
         ),
 
