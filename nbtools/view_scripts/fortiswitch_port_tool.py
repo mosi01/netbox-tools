@@ -555,7 +555,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         # If the result is a dict, try common envelope keys first.
         if isinstance(raw_vlans, dict):
-key in ("results", "items", "vlans", "data"):
+            key in ("results", "items", "vlans", "data"):
                 if isinstance(raw_vlans.get(key), list):
                     raw_vlans = raw_vlans[key]
                     break
@@ -796,7 +796,7 @@ key in ("results", "items", "vlans", "data"):
         comparable_fields = [
             ("native_vlan", "Native VLAN"),
             ("allowed_vlans", "Allowed VLANs"),
-scription", "Description"),
+            ("description", "Description"),
         ]
 
         for field_key, label in comparable_fields:
