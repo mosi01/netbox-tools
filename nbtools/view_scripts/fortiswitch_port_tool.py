@@ -459,13 +459,17 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # ------------------------------------------------------------------
     def _load_port_rows(
         self,
-        site: Optional[Site],
-        device: Optional[Device],
-        warnings_list: List[str],
-        errors_list: List[str],
-    ) -> List[dict]:
+        site,
+        device,
+        warnings_list,
+        errors_list,
+    ):
         """
-        Load and normalise FortiSwitch ports.
+        Load FortiSwitch ports using raw Forti data.
+    
+        - Native VLAN = value from "vlan"
+        - Allowed VLANs = values from "allowed-vlans"
+        - No numeric parsing
         """
 
         if not site or not device:
@@ -474,47 +478,43 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
         if not binding:
             return []
-
+    
         try:
             client = FortiAPIClient(binding)
             switch_identifier = client.get_switch_identifier(device)
-
+    
             raw_ports = client.get_switch_ports(switch_identifier)
-
-            # Forti sometimes wraps results in a dict
+    
+            # Handle Forti response
             if isinstance(raw_ports, dict):
                 port_rows = raw_ports.get("results", [])
             else:
                 port_rows = raw_ports
-
+    
             enriched_rows = []
-
+    
             for row in port_rows:
                 if not isinstance(row, dict):
                     continue
-
+    
                 port_name = row.get("port-name")
                 if not port_name:
                     continue
-
-                # Native VLAN (keep raw string)
+    
+                # Native VLAN
                 native_vlan = row.get("vlan")
-
-                # If untagged VLAN exists → use that instead
-                untagged = row.get("untagged-vlans")
-                if isinstance(untagged, list) and untagged:
-                    vlan_obj = untagged[0]
-                    if isinstance(vlan_obj, dict):
-                        native_vlan = vlan_obj.get("vlan-name")
-
-                # Allowed VLANs (keep names)
+    
+                # Allowed VLANs
                 allowed_vlans = []
-                for item in row.get("allowed-vlans", []):
-                    if isinstance(item, dict):
-                        name = item.get("vlan-name")
-                        if name:
-                            allowed_vlans.append(name)
-
+                raw_allowed = row.get("allowed-vlans", [])
+    
+                if isinstance(raw_allowed, list):
+                    for item in raw_allowed:
+                        if isinstance(item, dict):
+                            vlan_name = item.get("vlan-name")
+                            if vlan_name:
+                                allowed_vlans.append(vlan_name)
+    
                 interface = self._get_interface_by_name(device, port_name)
     
                 enriched_rows.append({
@@ -522,17 +522,16 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                     "native_vlan": native_vlan,
                     "allowed_vlans": allowed_vlans,
                     "description": row.get("description"),
-    
                     "netbox_interface_exists": bool(interface),
                     "netbox_connected": self._is_connected(interface) if interface else False,
                     "uplink_candidate": self._is_uplink_candidate(interface) if interface else False,
-                })  
-
+                })
+    
             return enriched_rows
-
+    
         except Exception as exc:
             logger.exception("Failed to load FortiSwitch ports")
-            errors_list.append(f"Could not load ports from Forti: {exc}")
+            errors_list.append("Error loading ports: " + str(exc))
             return []
     
     def _build_observed_vlan_choices(self, port_rows: List[dict]) -> List[dict]:
@@ -575,29 +574,33 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     
     def _load_available_vlans(
         self,
-        site: Optional[Site],
-        device: Optional[Device],
-        port_rows: List[dict],
-        warnings_list: List[str],
-    ) -> List[dict]:
+        site,
+        device,
+        port_rows,
+        warnings_list,
+    ):
         """
-        Build VLAN list from observed Forti port data.
+        Build VLAN list from port data using names.
         """
-
+    
         if not port_rows:
             return []
-
+    
         observed_vlans = set()
-
+    
         for row in port_rows:
-            if row.get("native_vlan"):
-                observed_vlans.add(row["native_vlan"])
-
-
+            nv = row.get("native_vlan")
+            if nv:
+                observed_vlans.add(nv)
+    
             for v in row.get("allowed_vlans", []):
                 observed_vlans.add(v)
-
-        return [{"id": v, "label": v} for v in sorted(observed_vlans)]
+    
+        result = []
+        for v in sorted(observed_vlans):
+            result.append({"id": v, "label": v})
+    
+        return result
 
 
     @staticmethod
