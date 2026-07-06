@@ -616,7 +616,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             return []
 
         binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
-       
+        if not binding:
             return []
 
         observed_choices = self._build_observed_vlan_choices(port_rows)
