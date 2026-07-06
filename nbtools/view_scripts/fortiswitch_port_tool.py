@@ -390,7 +390,8 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         """
         return Device.objects.filter(site_id=site_id).order_by("name").first()
 
-    @staticmethodrface_by_name(device: Device, port_name: str):
+    @staticmethod
+    def _get_interface_by_name(device: Device, port_name: str):
         """
         Attempt to map a Forti port name back to a NetBox interface.
         """
