@@ -859,7 +859,10 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
 
     @staticmethod
-    def _compare_states(desired_state: dict, actual_state: dict) -> List[dict]:
+    def _compare_states(desired_state: dict, actual_state: dict) -> List
+        """
+        Compare desired and actual state and return differences.
+        """
     
         diffs = []
     
@@ -867,7 +870,8 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     
         for f in fields:
             if desired_state.get(f) != actual_state.get(f):
-                dif               "field": f,
+                diffs.append({
+                    "field": f,
                     "desired": desired_state.get(f),
                     "actual": actual_state.get(f),
                 })
