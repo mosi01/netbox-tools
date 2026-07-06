@@ -647,6 +647,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                         warnings_list.append(
                             "No explicit VLAN inventory was returned by Forti for this switch. "
                             "Falling back to VLANs observed on live switch ports."
+                            for row in port_rows[:3]:
+                                "ROW VLAN DEBUG:", row.get("native_vlan"), row.get("allowed_vlans")
+
                         )
                         return observed_choices
 
