@@ -677,11 +677,13 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             else:
                 allowed_vlan_values = []
     
+        
         return {
             "native_vlan": native_vlan or None,
             "allowed_vlans": allowed_vlan_values,
-            "description": description or None,
+            "description": description if description != "" else None,
         }
+
 
 
     # ------------------------------------------------------------------
@@ -836,7 +838,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # Payload + diff helpers
     # ------------------------------------------------------------------
     
-    def _build_forti_payload(self, desired_state: dict, actual_state: dict) -> dict:
+    def _build_forti_payload(self, desired_state, actual_state):
     
         payload = {}
     
@@ -847,12 +849,18 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     
         # Allowed VLANs
         if desired_state.get("allowed_vlans") != actual_state.get("allowed_vlans"):
-            if desired_state.get("allowed_vlans"):
-                payload["allowed-vlans"] = desired_state["allowed_vlans"]
+            payload["allowed-vlans"] = desired_state.get("allowed_vlans", [])
     
         # Description
         if desired_state.get("description") != actual_state.get("description"):
-            payload["description"] = desired_state.get("description")
+    
+            desc = desired_state.get("description")
+    
+            # IMPORTANT: convert None → "" (explicit clear)
+            if desc is None:
+                desc = ""
+    
+            payload["description"] = desc
     
         return payload
 
@@ -880,32 +888,43 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
 
 
-    def _humanise_actual_state(self, normalised_port: Optional[dict]) -> dict:
-    
-        if not normalised_port:
-            return {
-                "native_vlan": None,
-                "allowed_vlans": [],
-                "description": None,
-            }
-    
+    def _humanise_actual_state(self, normalised_port):
+    """
+    Extract actual Forti state using VLAN names directly.
+    """
+
+    if not normalised_port:
+        return {
+            "native_vlan": "",
+            "allowed_vlans": [],
+            "description": "",
+        }
+
+    # Forti returns either wrapped {"port": {...}} or direct
+    if "port" in normalised_port:
+        port = normalised_port["port"]
+    else:
         port = normalised_port
-    
-        native_vlan = port.get("vlan")
-    
-        allowed_vlans = []
-        for item in port.get("allowed-vlans", []):
+
+    native_vlan = port.get("vlan") or ""
+
+    allowed_vlans = []
+    raw_allowed = port.get("allowed-vlans", [])
+
+    if isinstance(raw_allowed, list):
+        for item in raw_allowed:
             if isinstance(item, dict):
                 name = item.get("vlan-name")
                 if name:
                     allowed_vlans.append(name)
-    
-        return {
-            "native_vlan": native_vlan,
-            "allowed_vlans": allowed_vlans,
-            "description": port.get("description"),
-        }
 
+    description = port.get("description") or ""
+
+    return {
+        "native_vlan": native_vlan,
+        "allowed_vlans": allowed_vlans,
+        "description": description,
+    }
 
     # ------------------------------------------------------------------
     # Bulk port action helpers
