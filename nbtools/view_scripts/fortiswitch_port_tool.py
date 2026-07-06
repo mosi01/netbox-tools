@@ -440,8 +440,10 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         - vlan_id
         - vlanid
         """
-        if(value, dict):
+      
+        if not isinstance(value, dict):
             return None
+
 
         for key in ("id", "vid", "vlan_id", "vlanid"):
             candidate = value.get(key)
@@ -624,7 +626,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             return []
 
         # If the result is a dict, try common envelope keys first.
-        if isinstance(vlans, dict):
+        if isinstance(raw_vlans, dict):
             for key in ("results", "items", "vlans", "data"):
                 if isinstance(raw_vlans.get(key), list):
                     raw_vlans = raw_vlans[key]
@@ -839,52 +841,73 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # ------------------------------------------------------------------
     
     def _build_forti_payload(self, desired_state, actual_state):
-    
         payload = {}
     
-        # Native VLAN
-        if desired_state.get("native_vlan") != actual_state.get("native_vlan"):
-            if desired_state.get("native_vlan"):
-                payload["vlan"] = desired_state["native_vlan"]
+        desired_native = desired_state.get("native_vlan") or None
+        actual_native = actual_state.get("native_vlan") or None
     
-        # Allowed VLANs
-        if desired_state.get("allowed_vlans") != actual_state.get("allowed_vlans"):
-            payload["allowed-vlans"] = desired_state.get("allowed_vlans", [])
+        desired_allowed = desired_state.get("allowed_vlans") or []
+        actual_allowed = actual_state.get("allowed_vlans") or []
     
-        # Description
-        if desired_state.get("description") != actual_state.get("description"):
+        desired_description = desired_state.get("description")
+        actual_description = actual_state.get("description")
     
-            desc = desired_state.get("description")
+        if desired_description == "":
+            desired_description = None
+        if actual_description == "":
+            actual_description = None
     
-            # IMPORTANT: convert None → "" (explicit clear)
-            if desc is None:
-                desc = ""
+        if desired_native != actual_native and desired_native is not None:
+            payload["vlan"] = desired_native
     
-            payload["description"] = desc
+        if desired_allowed != actual_allowed:
+            payload["allowed-vlans"] = desired_allowed
+    
+        if desired_description != actual_description:
+            payload["description"] = "" if desired_description is None else desired_description
     
         return payload
 
 
-
     @staticmethod
-    def _compare_states(desired_state: dict, actual_state: dict) -> List:
-        """
-        Compare desired and actual state and return differences.
-        """
-    
+    def _compare_states(desired_state: dict, actual_state: dict) -> List[dict]:
         diffs = []
     
-        fields = ["native_vlan", "allowed_vlans", "description"]
+        desired_native = desired_state.get("native_vlan") or None
+        actual_native = actual_state.get("native_vlan") or Noned_allowed = desired_state.get("allowed_vlans") or []
+        actual_allowed = actual_state.get("allowed_vlans") or []
     
-        for f in fields:
-            if desired_state.get(f) != actual_state.get(f):
-                diffs.append({
-                    "field": f,
-                    "desired": desired_state.get(f),
-                    "actual": actual_state.get(f),
-                })
+        desired_description = desired_state.get("description")
+        actual_description = actual_state.get("description")
+    
+        if desired_description == "":
+            desired_description = None
+        if actual_description == "":
+            actual_description = None
+    
+        if desired_native != actual_native:
+            diffs.append({
+                "field": "native_vlan",
+                "desired": desired_native,
+                "actual": actual_native,
+            })
+    
+        if desired_allowed != actual_allowed:
+            diffs.append({
+                "field": "allowed_vlans",
+                "desired": desired_allowed,
+                "actual": actual_allowed,
+            })
+    
+        if desired_description != actual_description:
+            diffs.append({
+                "field": "description",
+                "desired": desired_description,
+                "actual": actual_description,
+            })
     
         return diffs
+
 
 
 
@@ -892,30 +915,71 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     
         if not isinstance(port, dict):
             return {
-                "native_vlan": "",
+                "native_vlan": None,
                 "allowed_vlans": [],
-                "description": "",
+                "description": None,
             }
     
-        native_vlan = port.get("vlan") or ""
+        native_vlan = self._get_first_present(
+            port,
+            "native_vlan",
+            "native-vlan",
+            "vlan",
+            default=None,
+        )
+    
+        if isinstance(native_vlan, dict):
+            native_vlan = (
+                native_vlan.get("vlan-name")
+                or native_vlan.get("name")
+                or native_vlan.get("interface")
+                or self._extract_vlan_id_from_dict(native_vlan)
+            )
+    
+        if native_vlan in ("", []):
+            native_vlan = None
+        elif native_vlan is not None:
+            native_vlan = str(native_vlan).strip() or None
+    
+        raw_allowed = self._get_first_present(
+            port,
+            "allowed_vlans",
+            "allowed-vlans",
+            default=[],
+        )
+    
+        if raw_allowed in (None, ""):
+            raw_allowed = []
+        elif not isinstance(raw_allowed, list):
+            raw_allowed = [raw_allowed]
     
         allowed_vlans = []
-        raw_allowed = port.get("allowed-vlans", [])
+        for item in raw_allowed:
+            value = None
     
-        if isinstance(raw_allowed, list):
-            for item in raw_allowed:
-                if isinstance(item, dict):
-                    name = item.get("vlan-name")
-                    if name:
-                        allowed_vlans.append(name)
+            if isinstance(item, dict):
+                value = (
+                    item.get("vlan-name")
+                    or item.get("name")
+                    or item.get("interface")
+                    or self._extract_vlan_id_from_dict(item)
+                )
+            else:
+                value = item
     
-        description = port.get("description") or ""
+            if value not in (None, ""):
+                allowed_vlans.append(str(value).strip())
+    
+        description = self._get_first_present(port, "description", default=None)
+        if description == "":
+            description = None
     
         return {
             "native_vlan": native_vlan,
             "allowed_vlans": allowed_vlans,
             "description": description,
         }
+
 
     # ------------------------------------------------------------------
     # Bulk port action helpers
