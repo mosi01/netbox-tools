@@ -477,7 +477,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
         if not binding:
-rn []
+            return []
 
         try:
             client = FortiAPIClient(binding)
