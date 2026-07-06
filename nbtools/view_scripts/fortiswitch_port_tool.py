@@ -404,7 +404,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         not define a guaranteed "switch role" filter. If you later want only
         switch-role devices, this helper is the best place to add that filter.
         """
-        return Device.objects.filter(site_id=site_id).order_by    @staticmethod
+        return Device.objects.filter(site_id=site_id).order_by    
+      
+    @staticmethod
     def _get_interface_by_name(device: Device, port_name: str):
         """
         Attempt to map a Forti port name back to a NetBox interface.
