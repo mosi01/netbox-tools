@@ -28,13 +28,29 @@ Design notes
 - Allowed VLANs are presented as a multi-select list
 - Non-numeric Forti tokens such as "fortilink.quarantine" are filtered out
   so they are never rendered back as deployable VLANs
+
+Key fixes in this version
+-------------------------
+- Falls back to VLANs observed on ports when explicit Forti VLAN inventory is
+  empty (not only when it errors).
+- Supports multiple common Forti key shapes such as:
+  - native_vlan / native-vlan
+  - allowed_vlans / allowed-vlans
+  - vlanid / vlan_id / vid / id
+- Supports VLAN values arriving as:
+  - integers
+  - numeric strings
+  - CSV/range strings
+  - lists
+  - dictionaries
+  - lists of dictionaries
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -388,14 +404,57 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         not define a guaranteed "switch role" filter. If you later want only
         switch-role devices, this helper is the best place to add that filter.
         """
-        return Device.objects.filter(site_id=site_id).order_by("name").first()
-
-    @staticmethod
+        return Device.objects.filter(site_id=site_id).order_by    @staticmethod
     def _get_interface_by_name(device: Device, port_name: str):
         """
         Attempt to map a Forti port name back to a NetBox interface.
         """
         return Interface.objects.filter(device=device, name=port_name).first()
+
+    # ------------------------------------------------------------------
+    # Generic row/value helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _get_first_present(mapping: Optional[dict], *keys, default=None):
+        """
+        Return the first present value from a mapping by trying multiple keys.
+
+        This is used defensively because Forti-normalised responses can vary
+        between underscores, hyphens, or other naming styles.
+        """
+        if not isinstance(mapping, dict):
+            return default
+
+        for key in keys:
+            if key in mapping:
+                return mapping.get(key)
+
+        return default
+
+    @staticmethod
+    def _extract_vlan_id_from_dict(value: dict) -> Optional[int]:
+        """
+        Extract a VLAN ID from a dictionary, if one is present.
+
+        Supported keys:
+        - id
+        - vid
+        - vlan_id
+        - vlanid
+        """
+        if(value, dict):
+            return None
+
+        for key in ("id", "vid", "vlan_id", "vlanid"):
+            candidate = value.get(key)
+            if isinstance(candidate, int) and 1 <= candidate <= 4094:
+                return candidate
+            if isinstance(candidate, str) and candidate.strip().isdigit():
+                candidate_int = int(candidate.strip())
+                if 1 <= candidate_int <= 4094:
+                    return candidate_int
+
+        return None
 
     # ------------------------------------------------------------------
     # Port loading helpers
@@ -418,7 +477,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
         if not binding:
-            return []
+rn []
 
         try:
             client = FortiAPIClient(binding)
@@ -428,23 +487,59 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
             enriched_rows = []
             for row in port_rows:
-                interface = self._get_interface_by_name(device, row["port_name"])
+                if not isinstance(row, dict):
+                    continue
+
+                # Support common key aliases from Forti normalisation.
+                port_name = self._get_first_present(row, "port_name", "name", "port", default=None)
+                if not port_name:
+                    continue
+
+                raw_native_vlan = self._get_first_present(
+                    row,
+                    "native_vlan",
+                    "native-vlan",
+                    "nativeVlan",
+                    "native",
+                    default=None,
+                )
+
+                raw_allowed_vlans = self._get_first_present(
+                    row,
+                    "allowed_vlans",
+                    "allowed-vlans",
+                    "allowedVlans",
+                    "allowed",
+                    default=None,
+                )
+
+                description = self._get_first_present(
+                    row,
+                    "description",
+                    "alias",
+                    "desc",
+                    default=None,
+                )
+
+                interface = self._get_interface_by_name(device, port_name)
 
                 # Ensure only deployable numeric VLANs are rendered to the operator.
-                native_vlan = self._coerce_vlan_id(row.get("native_vlan"))
-                allowed_vlans = self._extract_numeric_vlans(row.get("allowed_vlans"))
+                native_vlan = self._coerce_vlan_id(raw_native_vlan)
+                allowed_vlans = self._extract_numeric_vlans(raw_allowed_vlans)
 
-                # Preserve the original row keys where useful, while standardising
-                # the VLAN values used by the tool itself.
-                row["native_vlan"] = native_vlan
-                row["allowed_vlans"] = allowed_vlans
+                # Preserve row data while standardising keys used by the template/tool.
+                normalised_row = dict(row)
+                normalised_row["port_name"] = port_name
+                normalised_row["native_vlan"] = native_vlan
+                normalised_row["allowed_vlans"] = allowed_vlans
+                normalised_row["description"] = description
 
                 # Add NetBox safety metadata per row.
-                row["netbox_interface_exists"] = bool(interface)
-                row["netbox_connected"] = self._is_connected(interface) if interface else False
-                row["uplink_candidate"] = self._is_uplink_candidate(interface) if interface else False
+                normalised_row["netbox_interface_exists"] = bool(interface)
+                normalised_row["netbox_connected"] = self._is_connected(interface) if interface else False
+                normalised_row["uplink_candidate"] = self._is_uplink_candidate(interface) if interface else False
 
-                enriched_rows.append(row)
+                enriched_rows.append(normalised_row)
 
             return enriched_rows
 
@@ -452,6 +547,43 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             logger.exception("Failed to load FortiSwitch ports")
             errors_list.append(f"Could not load ports from Forti: {exc}")
             return []
+
+    def _build_observed_vlan_choices(self, port_rows: List[dict]) -> List[dict]:
+        """
+        Build VLAN choices from the VLANs already observed in live port rows.
+
+        This is the primary fallback when explicit VLAN inventory is unavailable
+        or empty.
+        """
+        observed_vlans = set()
+
+        for row in port_rows:
+ve_vlan = self._coerce_vlan_id(
+                self._get_first_present(
+                    row,
+                    "native_vlan",
+                    "native-vlan",
+                    "nativeVlan",
+                    "native",
+                    default=None,
+                )
+            )
+            if native_vlan is not None:
+                observed_vlans.add(native_vlan)
+
+            raw_allowed_vlans = self._get_first_present(
+                row,
+                "allowed_vlans",
+                "allowed-vlans",
+                "allowedVlans",
+                "allowed",
+                default=None,
+            )
+
+            for vlan_id in self._extract_numeric_vlans(raw_allowed_vlans):
+                observed_vlans.add(vlan_id)
+
+        return [{"id": vlan_id, "label": str(vlan_id)} for vlan_id in sorted(observed_vlans)]
 
     def _load_available_vlans(
         self,
@@ -470,8 +602,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         Fallback source
         ---------------
-        - If those client methods are not available, fall back to any numeric
-          VLAN IDs already observed on the live switch ports.
+        - If the explicit inventory is unavailable, errors, or returns an empty
+          list, fall back to numeric VLAN IDs already observed on the live
+          switch ports.
 
         Why this is defensive
         ---------------------
@@ -483,8 +616,10 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             return []
 
         binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
-        if not binding:
+       
             return []
+
+        observed_choices = self._build_observed_vlan_choices(port_rows)
 
         try:
             client = FortiAPIClient(binding)
@@ -494,44 +629,65 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             # Preferred path: client exposes explicit VLAN inventory
             # ----------------------------------------------------------
             if hasattr(client, "get_switch_vlans"):
-                raw_vlans = client.get_switch_vlans(switch_identifier)
+                try:
+                    raw_vlans = client.get_switch_vlans(switch_identifier)
 
-                if hasattr(client, "normalise_vlans_response"):
-                    normalised_vlans = client.normalise_vlans_response(raw_vlans)
-                    return self._normalise_vlan_choices(normalised_vlans)
+                    if hasattr(client, "normalise_vlans_response"):
+                        raw_vlans = client.normalise_vlans_response(raw_vlans)
 
-                return self._normalise_vlan_choices(raw_vlans)
+                    explicit_choices = self._normalise_vlan_choices(raw_vlans)
+
+                    # IMPORTANT FIX:
+                    # If explicit inventory exists but is empty, do NOT stop here.
+                    # Fall back to VLANs observed on live switch ports instead.
+                    if explicit_choices:
+                        return explicit_choices
+
+                    if observed_choices:
+                        warnings_list.append(
+                            "No explicit VLAN inventory was returned by Forti for this switch. "
+                            "Falling back to VLANs observed on live switch ports."
+                        )
+                        return observed_choices
+
+                    return []
+
+                except Exception as exc:
+                    logger.exception("Explicit VLAN inventory lookup failed")
+                    if observed_choices:
+                        warnings_list.append(
+                            f"Could not load the full VLAN list from Forti. "
+                            f"Falling back to VLANs observed on live switch ports. ({exc})"
+                        )
+                        return observed_choices
+
+                    warnings_list.append(
+                        f"Could not load the full VLAN list from Forti and no VLANs were "
+                        f"observed on live switch ports. ({exc})"
+                    )
+                    return []
 
             # ----------------------------------------------------------
-            # Fallback path: build choices from VLAN IDs already seen on
-            # the live port data for the selected switch.
+            # If the client does not expose explicit VLAN inventory,
+            # fall back directly to observed live VLANs.
             # ----------------------------------------------------------
-            observed_vlans = set()
-            for row in port_rows:
-                native_vlan = self._coerce_vlan_id(row.get("native_vlan"))
-                if native_vlan is not None:
-                    observed_vlans.add(native_vlan)
-
-                for vlan_id in self._extract_numeric_vlans(row.get("allowed_vlans")):
-                    observed_vlans.add(vlan_id)
-
-            return [{"id": vlan_id, "label": str(vlan_id)} for vlan_id in sorted(observed_vlans)]
+            return observed_choices
 
         except Exception as exc:
             logger.exception("Failed to load available VLAN list")
-            warnings_list.append(f"Could not load the full VLAN list from Forti. Falling back where possible. ({exc})")
 
-            # Safe fallback from already-loaded port rows.
-            observed_vlans = set()
-            for row in port_rows:
-                native_vlan = self._coerce_vlan_id(row.get("native_vlan"))
-                if native_vlan is not None:
-                    observed_vlans.add(native_vlan)
+            if observed_choices:
+                warnings_list.append(
+                    f"Could not load the full VLAN list from Forti. "
+                    f"Falling back to VLANs observed on live switch ports. ({exc})"
+                )
+                return observed_choices
 
-                for vlan_id in self._extract_numeric_vlans(row.get("allowed_vlans")):
-                    observed_vlans.add(vlan_id)
-
-            return [{"id": vlan_id, "label": str(vlan_id)} for vlan_id in sorted(observed_vlans)]
+            warnings_list.append(
+                f"Could not load the full VLAN list from Forti and no VLANs were "
+                f"observed on live switch ports. ({exc})"
+            )
+            return []
 
     @staticmethod
     def _normalise_vlan_choices(raw_vlans) -> List[dict]:
@@ -554,7 +710,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             return []
 
         # If the result is a dict, try common envelope keys first.
-        if isinstance(raw_vlans, dict):
+        ifvlans, dict):
             for key in ("results", "items", "vlans", "data"):
                 if isinstance(raw_vlans.get(key), list):
                     raw_vlans = raw_vlans[key]
@@ -572,22 +728,14 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 label = str(item)
 
             elif isinstance(item, str):
-                # Accept only clean numeric strings.
-                if item.isdigit():
-                    vlan_id = int(item)
-                    label = item
+                stripped = item.strip()
+                if stripped.isdigit():
+                    vlan_id = int(stripped)
+                    label = stripped
 
             elif isinstance(item, dict):
-                for key in ("id", "vid", "vlan_id", "vlanid"):
-                    value = item.get(key)
-                    if isinstance(value, int):
-                        vlan_id = value
-                        break
-                    if isinstance(value, str) and value.isdigit():
-                        vlan_id = int(value)
-                        break
+                vlan_id = FortiSwitchPortToolView._extract_vlan_id_from_dict(item)
 
-                # Build a friendly label if a name exists.
                 if vlan_id is not None:
                     name = item.get("name") or item.get("interface") or item.get("description")
                     label = f"{vlan_id} - {name}" if name else str(vlan_id)
@@ -680,6 +828,10 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         if value in (None, "", []):
             return None
 
+        if isinstance(value, dict):
+            extracted = FortiSwitchPortToolView._extract_vlan_id_from_dict(value)
+            return extracted
+
         if isinstance(value, int):
             return value if 1 <= value <= 4094 else None
 
@@ -701,11 +853,12 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         - "10,20,30-35"
         - "10 20 30"
         - ["10,20", "30"]
-        - strings containing tokens such as "quarantine" or
+        - [{"id": 10}, {"vlanid": "20"}]
+        - strings containing tokens such  or
           "fortilink.quarantine" (these are ignored)
 
         Returns
-
+        -------
         Sorted list of unique valid numeric VLAN IDs only.
         """
         if value in (None, "", []):
@@ -713,25 +866,43 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         parsed = set()
 
-        # Normalise input into a list of string fragments for parsing.
-        fragments: List[str] = []
+        # Normalise input into a list of fragments for parsing.
+        fragments: List[Any] = []
 
         if isinstance(value, list):
-            for item in value:
-                if item is None:
-                    continue
-                fragments.append(str(item))
+            fragments.extend(value)
         else:
-            fragments.append(str(value))
+            fragments.append(value)
 
         for fragment in fragments:
+            if fragment is None:
+                continue
+
+            # Direct integer support.
+            if isinstance(fragment, int):
+                if 1 <= fragment <= 4094:
+                    parsed.add(fragment)
+                continue
+
+            # Dictionary support.
+            if isinstance(fragment, dict):
+                vlan_id = self._extract_vlan_id_from_dict(fragment)
+                if vlan_id is not None:
+                    parsed.add(vlan_id)
+                continue
+
+            # String support.
+            fragment_str = str(fragment).strip()
+            if not fragment_str:
+                continue
+
             # Split on comma and whitespace, but still allow ranges such as 30-35.
-            for part in re.split(r"[,\s]+", fragment.strip()):
+            for part in re.split(r"[,\s]+", fragment_str):
                 item = part.strip()
                 if not item:
                     continue
 
-                # Ignore known non-numeric Forti tokens.
+                # Ignore tokens with no digits at all.
                 if not re.search(r"\d", item):
                     continue
 
@@ -793,8 +964,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         """
         diffs = []
 
-        comparable_fields = [
-            ("native_vlan", "Native VLAN"),
+        comparable_fields = ("native_vlan", "Native VLAN"),
             ("allowed_vlans", "Allowed VLANs"),
             ("description", "Description"),
         ]
@@ -831,10 +1001,36 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 "description": None,
             }
 
+        raw_native_vlan = self._get_first_present(
+            normalised_port,
+            "native_vlan",
+            "native-vlan",
+            "nativeVlan",
+            "native",
+            default=None,
+        )
+
+        raw_allowed_vlans = self._get_first_present(
+            normalised_port,
+            "allowed_vlans",
+            "allowed-vlans",
+            "allowedVlans",
+            "allowed",
+            default=[],
+        )
+
+        description = self._get_first_present(
+            normalised_port,
+            "description",
+            "alias",
+            "desc",
+            default=None,
+        )
+
         return {
-            "native_vlan": self._coerce_vlan_id(normalised_port.get("native_vlan")),
-            "allowed_vlans": self._extract_numeric_vlans(normalised_port.get("allowed_vlans", [])),
-            "description": normalised_port.get("description"),
+            "native_vlan": self._coerce_vlan_id(raw_native_vlan),
+            "allowed_vlans": self._extract_numeric_vlans(raw_allowed_vlans),
+            "description": description,
         }
 
     # ------------------------------------------------------------------
