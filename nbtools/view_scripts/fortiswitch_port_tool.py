@@ -859,7 +859,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
 
     @staticmethod
-    def _compare_states(desired_state: dict, actual_state: dict) -> List
+    def _compare_states(desired_state: dict, actual_state: dict) -> List:
         """
         Compare desired and actual state and return differences.
         """
