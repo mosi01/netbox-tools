@@ -618,6 +618,8 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             return []
 
         observed_choices = self._build_observed_vlan_choices(port_rows)
+        for row in port_rows[:3]:
+            print("ROW VLAN DEBUG:", row.get("native_vlan"), row.get("allowed_vlans"))
 
         try:
             client = FortiAPIClient(binding)
