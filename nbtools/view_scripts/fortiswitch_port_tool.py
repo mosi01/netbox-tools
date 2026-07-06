@@ -555,7 +555,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         # If the result is a dict, try common envelope keys first.
         if isinstance(raw_vlans, dict):
-            key in ("results", "items", "vlans", "data"):
+            for key in ("results", "items", "vlans", "data"):
                 if isinstance(raw_vlans.get(key), list):
                     raw_vlans = raw_vlans[key]
                     break
