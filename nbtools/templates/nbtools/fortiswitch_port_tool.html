@@ -183,10 +183,10 @@
 
                             {# ALLOWED VLANS (MULTI-SELECT) #}
                             <td>
+                                
                                 <select name="allowed_vlans__{{ p.port_name }}"
-                                        class="form-select form-select-sm"
-                                        multiple
-                                        size="6">
+                                        class="form-select form-select-sm select2"
+                                        multiple>
                                     {% for vlan in available_vlans %}
                                         <option value="{{ vlan.id }}"
                                             {% if vlan.id in p.allowed_vlans %}selected{% endif %}>
@@ -336,5 +336,17 @@
     {% endif %}
 
 </div>
+{% block javascript %}
+{{ block.super }}
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    $('.select2').select2({
+        width: '100%',
+        closeOnSelect: false,
+        placeholder: 'Select VLAN(s)'
+    });
+});
+</script>
 
 {% endblock %}
