@@ -396,15 +396,11 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         )
 
     @staticmethod
-    def _get_first_device_for_site(site_id: int) -> Optional[Device]:
+    def _get_first_device_for_site(site_id: int):
         """
         Return the first device for a site, ordered by name.
-
-        This is intentionally simple because the provided code and sources do
-        not define a guaranteed "switch role" filter. If you later want only
-        switch-role devices, this helper is the best place to add that filter.
         """
-        return Device.objects.filter(site_id=site_id).order_by    
+        return Device.objects.filter(site_id=site_id).order_by("name").first() 
       
     @staticmethod
     def _get_interface_by_name(device: Device, port_name: str):
