@@ -42,12 +42,12 @@
     </div>
     {% endif %}
 
-    <form method="post">
-        {% csrf_token %}
-
-        {# ============================================================ #}
-        {# SELECTION                                                   #}
-        {# ============================================================ #}
+    {# ============================================================ #}
+    {# SELECTION (GET FORM)                                         #}
+    {# Separate GET form so changing site/device does not trigger    #}
+    {# POST validation or action errors.                            #}
+    {# ============================================================ #}
+    <form method="get">
         <div class="card mb-3">
             <div class="card-header"><strong>Selection</strong></div>
             <div class="card-body">
@@ -78,18 +78,31 @@
                                 </option>
                             {% endfor %}
                         </select>
+                        <div class="form-text">
+                            When you select a site, the first available device is selected automatically.
+                        </div>
                     </div>
 
                 </div>
 
             </div>
         </div>
+    </form>
+
+    {# ============================================================ #}
+    {# ACTION FORM (POST)                                            #}
+    {# ============================================================ #}
+    {% if port_rows %}
+    <form method="post">
+        {% csrf_token %}
+
+        {# Keep the selected site/device through the POST action. #}
+        <input type="hidden" name="site_id" value="{{ selected_site.id }}">
+        <input type="hidden" name="device_id" value="{{ selected_device.id }}">
 
         {# ============================================================ #}
-        {# PORT TABLE (NEW CORE FEATURE)                              #}
+        {# PORT TABLE                                                  #}
         {# ============================================================ #}
-        {% if port_rows %}
-
         <div class="card mb-3">
             <div class="card-header">
                 <strong>Switch Ports</strong>
@@ -97,15 +110,34 @@
 
             <div class="card-body">
 
-                <table class="table table-hover table-bordered table-sm">
+                {% if available_vlans %}
+                    <div class="alert alert-info">
+                        <strong>Available VLANs loaded:</strong>
+                        {{ available_vlans|length }}
+                        <br>
+                        <small>
+                            Native VLAN uses a drop-down list. Allowed VLANs use a multi-select box.
+                            Non-numeric Forti tokens such as quarantine are automatically ignored.
+                        </small>
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary">
+                        <strong>No explicit VLAN inventory was loaded.</strong>
+                        <br>
+                        <small>
+                            The tool may still show VLANs already observed on switch ports, depending on the live data returned by Forti.
+                        </small>
+                    </div>
+                {% endif %}
+
+                <table class="table table-hover table-bordered table-sm align-middle">
 
                     <thead class="table-light">
                         <tr>
                             <th style="width:40px"></th>
                             <th>Port</th>
-                            <th>Mode</th>
-                            <th>Native VLAN</th>
-                            <th>Allowed VLANs</th>
+                            <th style="width:220px">Native VLAN</th>
+                            <th style="width:280px">Allowed VLANs</th>
                             <th>Description</th>
                             <th style="width:120px">Status</th>
                         </tr>
@@ -132,33 +164,39 @@
                                 {% endif %}
 
                                 {% if p.netbox_connected %}
-                                    <span class="badge bg-warning">Connected</span>
+                                    <span class="badge bg-warning text-dark">Connected</span>
                                 {% endif %}
-                            </td>
-
-                            {# MODE #}
-                            <td>
-                                <select name="mode__{{ p.port_name }}" class="form-select form-select-sm">
-                                    <option value="">--</option>
-                                    <option value="access" {% if p.mode == "access" %}selected{% endif %}>Access</option>
-                                    <option value="trunk" {% if p.mode == "trunk" %}selected{% endif %}>Trunk</option>
-                                </select>
                             </td>
 
                             {# NATIVE VLAN #}
                             <td>
-                                <input type="text"
-                                       name="native_vlan__{{ p.port_name }}"
-                                       class="form-control form-control-sm"
-                                       value="{{ p.native_vlan }}">
+                                <select name="native_vlan__{{ p.port_name }}" class="form-select form-select-sm">
+                                    <option value="">-- None --</option>
+                                    {% for vlan in available_vlans %}
+                                        <option value="{{ vlan.id }}"
+                                            {% if p.native_vlan == vlan.id %}selected{% endif %}>
+                                            {{ vlan.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
                             </td>
 
-                            {# ALLOWED VLANS #}
+                            {# ALLOWED VLANS (MULTI-SELECT) #}
                             <td>
-                                <input type="text"
-                                       name="allowed_vlans__{{ p.port_name }}"
-                                       class="form-control form-control-sm"
-                                       value="{{ p.allowed_vlans|join:',' }}">
+                                <select name="allowed_vlans__{{ p.port_name }}"
+                                        class="form-select form-select-sm"
+                                        multiple
+                                        size="6">
+                                    {% for vlan in available_vlans %}
+                                        <option value="{{ vlan.id }}"
+                                            {% if vlan.id in p.allowed_vlans %}selected{% endif %}>
+                                            {{ vlan.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    Hold Ctrl / Cmd to select multiple VLANs.
+                                </div>
                             </td>
 
                             {# DESCRIPTION #}
@@ -166,12 +204,12 @@
                                 <input type="text"
                                        name="description__{{ p.port_name }}"
                                        class="form-control form-control-sm"
-                                       value="{{ p.description }}">
+                                       value="{{ p.description|default:'' }}">
                             </td>
 
                             {# STATUS #}
                             <td>
-                                {{ p.status }}
+                                {{ p.status|default:"-" }}
                             </td>
 
                         </tr>
@@ -180,10 +218,15 @@
                     </tbody>
                 </table>
 
-                <div class="form-check mt-2">
-                    <input class="form-check-input" type="checkbox"
-                           name="dry_run">
-                    <label class="form-check-label">Preview only (Dry Run)</label>
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run">
+                    <label class="form-check-label" for="dry_run">
+                        Preview only (Dry Run)
+                    </label>
+                    <div class="form-text">
+                        To use this: tick the checkbox and click <strong>Deploy Selected</strong>.
+                        The tool will show the payload and differences, but it will not push any configuration.
+                    </div>
                 </div>
 
             </div>
@@ -210,13 +253,11 @@
             </div>
         </div>
 
-        {% endif %}
-
     </form>
-
+    {% endif %}
 
     {# ============================================================ #}
-    {# RESULT PANEL (STRUCTURED ✅)                                #}
+    {# RESULT PANEL                                                  #}
     {# ============================================================ #}
     {% if result %}
 
@@ -231,6 +272,8 @@
                 <strong>Action:</strong> {{ result.action }}<br>
                 <strong>Device:</strong> {{ result.device_name }}<br>
                 <strong>Total Ports:</strong> {{ result.summary.total_ports }}<br>
+                <strong>Completed:</strong> {{ result.summary.completed_ports }}<br>
+                <strong>Blocked:</strong> {{ result.summary.blocked_ports }}<br>
                 <strong>Changes Needed:</strong> {{ result.summary.ports_with_differences }}
             </div>
 
@@ -243,14 +286,21 @@
                 <span class="badge bg-secondary">{{ r.status }}</span>
 
                 {% if r.warnings %}
-                    <div class="text-warning">
+                    <div class="text-warning mt-1">
                         ⚠ {{ r.warnings|join:", " }}
                     </div>
                 {% endif %}
 
                 {% if r.errors %}
-                    <div class="text-danger">
+                    <div class="text-danger mt-1">
                         ❌ {{ r.errors|join:", " }}
+                    </div>
+                {% endif %}
+
+                {% if r.payload %}
+                    <div class="mt-2">
+                        <strong>Payload:</strong>
+                        <pre class="bg-light p-2 border rounded small mb-0">{{ r.payload }}</pre>
                     </div>
                 {% endif %}
 
