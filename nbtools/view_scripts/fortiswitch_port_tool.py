@@ -558,7 +558,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         observed_vlans = set()
 
         for row in port_rows:
-ve_vlan = self._coerce_vlan_id(
+            native_vlan = self._coerce_vlan_id(
                 self._get_first_present(
                     row,
                     "native_vlan",
