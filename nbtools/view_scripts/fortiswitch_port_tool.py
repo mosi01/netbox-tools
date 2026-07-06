@@ -458,93 +458,82 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # Port loading helpers
     # ------------------------------------------------------------------
     def _load_port_rows(
-        self,
-        site: Optional[Site],
-        device: Optional[Device],
-        warnings_list: List[str],
-        errors_list: List[str],
-    ) -> List[dict]:
-        """
-        Load and normalise all FortiSwitch ports for the selected device.
+    self,
+    site: Optional[Site],
+    device: Optional[Device],
+    warnings_list: List[str],
+    errors_list: List[str],
+) -> List[dict]:
+    """
+    Load and normalise FortiSwitch ports.
+    """
 
-        This populates the editable table automatically from the live Forti
-        state, not from stale local assumptions.
-        """
-        if not site or not device:
-            return []
+    if not site or not device:
+        return []
 
-        binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
-        if not binding:
-            return []
+    binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
+    if not binding:
+        return []
 
-        try:
-            client = FortiAPIClient(binding)
-            switch_identifier = client.get_switch_identifier(device)
-            raw_ports = client.get_switch_ports(switch_identifier)
-            port_rows = client.normalise_ports_response(raw_ports)
+    try:
+        client = FortiAPIClient(binding)
+        switch_identifier = client.get_switch_identifier(device)
 
-            enriched_rows = []
-            for row in port_rows:
-                if not isinstance(row, dict):
-                    continue
+        raw_ports = client.get_switch_ports(switch_identifier)
 
-                # Support common key aliases from Forti normalisation.
-                port_name = self._get_first_present(row, "port_name", "name", "port", default=None)
-                if not port_name:
-                    continue
+        # Forti sometimes wraps results in a dict
+        if isinstance(raw_ports, dict):
+            port_rows = raw_ports.get("results", [])
+        else:
+            port_rows = raw_ports
 
-                raw_native_vlan = self._get_first_present(
-                    row,
-                    "native_vlan",
-                    "native-vlan",
-                    "nativeVlan",
-                    "native",
-                    default=None,
-                )
+        enriched_rows = []
 
-                raw_allowed_vlans = self._get_first_present(
-                    row,
-                    "allowed_vlans",
-                    "allowed-vlans",
-                    "allowedVlans",
-                    "allowed",
-                    default=None,
-                )
+        for row in port_rows:
+            if not isinstance(row, dict):
+                continue
 
-                description = self._get_first_present(
-                    row,
-                    "description",
-                    "alias",
-                    "desc",
-                    default=None,
-                )
+            port_name = row.get("port-name")
+            if not port_name:
+                continue
 
-                interface = self._get_interface_by_name(device, port_name)
+            # Native VLAN (keep raw string)
+            native_vlan = row.get("vlan")
 
-                # Ensure only deployable numeric VLANs are rendered to the operator.
-                native_vlan = self._coerce_vlan_id(raw_native_vlan)
-                allowed_vlans = self._extract_numeric_vlans(raw_allowed_vlans)
+            # If untagged VLAN exists → use that instead
+            untagged = row.get("untagged-vlans")
+            if isinstance(untagged, list) and untagged:
+                vlan_obj = untagged[0]
+                if isinstance(vlan_obj, dict):
+                    native_vlan = vlan_obj.get("vlan-name")
 
-                # Preserve row data while standardising keys used by the template/tool.
-                normalised_row = dict(row)
-                normalised_row["port_name"] = port_name
-                normalised_row["native_vlan"] = native_vlan
-                normalised_row["allowed_vlans"] = allowed_vlans
-                normalised_row["description"] = description
+            # Allowed VLANs (keep names)
+            allowed_vlans = []
+            for item in row.get("allowed-vlans", []):
+                if isinstance(item, dict):
+                    name = item.get("vlan-name")
+                    if name:
+                        allowed_vlans.append(name)
 
-                # Add NetBox safety metadata per row.
-                normalised_row["netbox_interface_exists"] = bool(interface)
-                normalised_row["netbox_connected"] = self._is_connected(interface) if interface else False
-                normalised_row["uplink_candidate"] = self._is_uplink_candidate(interface) if interface else False
+            interface = self._get_interface_by_name(device, port_name)
 
-                enriched_rows.append(normalised_row)
+            enriched_rows.append({
+                "port_name": port_name,
+                "native_vlan": native_vlan,
+                "allowed_vlans": allowed_vlans,
+                "description": row.get("description"),
 
-            return enriched_rows
+                "netbox_interface_exists": bool(interface),
+                "netbox_connected": self._is_connected(interface) if interface else False,
+                "uplink_candidate": self._is_uplink_candidate(interface) if interface else False,
+            })
 
-        except Exception as exc:
-            logger.exception("Failed to load FortiSwitch ports")
-            errors_list.append(f"Could not load ports from Forti: {exc}")
-            return []
+        return enriched_rows
+
+    except Exception as exc:
+        logger.exception("Failed to load FortiSwitch ports")
+        errors_list.append(f"Could not load ports from Forti: {exc}")
+        return []
 
     def _build_observed_vlan_choices(self, port_rows: List[dict]) -> List[dict]:
         """
@@ -583,114 +572,31 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         return [{"id": vlan_id, "label": str(vlan_id)} for vlan_id in sorted(observed_vlans)]
 
-    def _load_available_vlans(
-        self,
-        site: Optional[Site],
-        device: Optional[Device],
-        port_rows: List[dict],
-        warnings_list: List[str],
-    ) -> List[dict]:
-        """
-        Load the list of VLANs that should be available in the UI.
+    
+def _load_available_vlans(
+    self,
+    site: Optional[Site],
+    device: Optional[Device],
+    port_rows: List[dict],
+    warnings_list: List[str],
+) -> List[dict]:
+    """
+    Build VLAN list from observed Forti port data.
+    """
 
-        Preferred source
-        ----------------
-        - Use Forti-side VLAN inventory if the existing FortiAPIClient exposes
-          methods for it.
+    if not port_rows:
+        return []
 
-        Fallback source
-        ---------------
-        - If the explicit inventory is unavailable, errors, or returns an empty
-          list, fall back to numeric VLAN IDs already observed on the live
-          switch ports.
+    observed_vlans = set()
 
-        Why this is defensive
-        ---------------------
-        The provided code snippet includes port methods but does not include the
-        FortiAPIClient implementation, so this method is careful to avoid making
-        hard assumptions about unavailable client methods.
-        """
-        if not site or not device:
-            return []
+    for row in        if row.get("native_vlan"):
+            observed_vlans.add(row["native_vlan"])
 
-        binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
-        if not binding:
-            return []
+        for v in row.get("allowed_vlans", []):
+            observed_vlans.add(v)
 
-        observed_choices = self._build_observed_vlan_choices(port_rows)
-        for row in port_rows[:3]:
-            print("ROW VLAN DEBUG:", row.get("native_vlan"), row.get("allowed_vlans"))
+    return [{"id": v, "label": v} for v in sorted(observed_vlans)]
 
-        try:
-            client = FortiAPIClient(binding)
-            switch_identifier = client.get_switch_identifier(device)
-
-            # ----------------------------------------------------------
-            # Preferred path: client exposes explicit VLAN inventory
-            # ----------------------------------------------------------
-            if hasattr(client, "get_switch_vlans"):
-                try:
-                    raw_vlans = client.get_switch_vlans(switch_identifier)
-
-                    if hasattr(client, "normalise_vlans_response"):
-                        raw_vlans = client.normalise_vlans_response(raw_vlans)
-
-                    explicit_choices = self._normalise_vlan_choices(raw_vlans)
-
-                    # IMPORTANT FIX:
-                    # If explicit inventory exists but is empty, do NOT stop here.
-                    # Fall back to VLANs observed on live switch ports instead.
-                    if explicit_choices:
-                        return explicit_choices
-
-                    if observed_choices:
-                        warnings_list.append(
-                            "No explicit VLAN inventory was returned by Forti for this switch. "
-                            "Falling back to VLANs observed on live switch ports."
-                            for row in port_rows[:3]:
-                                "ROW VLAN DEBUG:", row.get("native_vlan"), row.get("allowed_vlans")
-
-                        )
-                        return observed_choices
-
-                    return []
-
-                except Exception as exc:
-                    logger.exception("Explicit VLAN inventory lookup failed")
-                    if observed_choices:
-                        warnings_list.append(
-                            f"Could not load the full VLAN list from Forti. "
-                            f"Falling back to VLANs observed on live switch ports. ({exc})"
-                        )
-                        return observed_choices
-
-                    warnings_list.append(
-                        f"Could not load the full VLAN list from Forti and no VLANs were "
-                        f"observed on live switch ports. ({exc})"
-                    )
-                    return []
-
-            # ----------------------------------------------------------
-            # If the client does not expose explicit VLAN inventory,
-            # fall back directly to observed live VLANs.
-            # ----------------------------------------------------------
-            return observed_choices
-
-        except Exception as exc:
-            logger.exception("Failed to load available VLAN list")
-
-            if observed_choices:
-                warnings_list.append(
-                    f"Could not load the full VLAN list from Forti. "
-                    f"Falling back to VLANs observed on live switch ports. ({exc})"
-                )
-                return observed_choices
-
-            warnings_list.append(
-                f"Could not load the full VLAN list from Forti and no VLANs were "
-                f"observed on live switch ports. ({exc})"
-            )
-            return []
 
     @staticmethod
     def _normalise_vlan_choices(raw_vlans) -> List[dict]:
