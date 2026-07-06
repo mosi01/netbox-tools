@@ -662,38 +662,27 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # ------------------------------------------------------------------
     # Per-port desired state extraction
     # ------------------------------------------------------------------
+    
     def _extract_desired_state_for_port(self, request, port_name: str) -> dict:
-        """
-        Extract row-specific desired values from the POST.
-
-        Expected field names in the template:
-        - native_vlan__<port_name>
-        - allowed_vlans__<port_name>   (multi-select list box)
-        - description__<port_name>
-
-        Legacy compatibility:
-        - If allowed_vlans__<port_name> arrives as a single CSV string rather
-          than a multi-value POST field, it will still be parsed safely.
-        """
-        native_vlan_raw = request.POST.get(f"native_vlan__{port_name}", "").strip()
+    
+        native_vlan = request.POST.get(f"native_vlan__{port_name}", "").strip()
         description = request.POST.get(f"description__{port_name}", "").strip()
-
-        # Multi-select list box values arrive as a list.
+    
         allowed_vlan_values = request.POST.getlist(f"allowed_vlans__{port_name}")
-
-        # Backward compatibility for a single text field form.
+    
         if not allowed_vlan_values:
-            legacy_allowed_vlans_raw = request.POST.get(f"allowed_vlans__{port_name}", "").strip()
-            allowed_vlan_values = [legacy_allowed_vlans_raw] if legacy_allowed_vlans_raw else []
-
-        parsed_native_vlan = self._coerce_vlan_id(native_vlan_raw)
-        parsed_allowed_vlans = self._extract_numeric_vlans(allowed_vlan_values)
-
+            tmp = request.POST.get(f"allowed_vlans__{port_name}", "").strip()
+            if tmp:
+                allowed_vlan_values = [tmp]
+            else:
+                allowed_vlan_values = []
+    
         return {
-            "native_vlan": parsed_native_vlan,
-            "allowed_vlans": parsed_allowed_vlans,
+            "native_vlan": native_vlan or None,
+            "allowed_vlans": allowed_vlan_values,
             "description": description or None,
         }
+
 
     # ------------------------------------------------------------------
     # Safety helpers
@@ -846,111 +835,78 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # ------------------------------------------------------------------
     # Payload + diff helpers
     # ------------------------------------------------------------------
-    def _build_forti_payload(self, desired_state: dict) -> dict:
-        """
-        Build a payload for the FortiSwitch update call.
-
-        Notes
-        -----
-        - The "mode" field has been intentionally removed.
-        - Allowed VLANs are exported as numeric VLAN IDs only.
-        - Non-numeric tokens are never included.
-        """
+    
+    def _build_forti_payload(self, desired_state: dict, actual_state: dict) -> dict:
+    
         payload = {}
-
-        if desired_state.get("native_vlan") is not None:
-            payload["native-vlan"] = desired_state["native_vlan"]
-
-        if desired_state.get("allowed_vlans") is not None:
-            payload["allowed-vlans"] = " ".join(map(str, desired_state["allowed_vlans"]))
-
-        if desired_state.get("description") is not None:
-            payload["description"] = desired_state["description"]
-
+    
+        # Native VLAN
+        if desired_state.get("native_vlan") != actual_state.get("native_vlan"):
+            if desired_state.get("native_vlan"):
+                payload["vlan"] = desired_state["native_vlan"]
+    
+        # Allowed VLANs
+        if desired_state.get("allowed_vlans") != actual_state.get("allowed_vlans"):
+            if desired_state.get("allowed_vlans"):
+                payload["allowed-vlans"] = desired_state["allowed_vlans"]
+    
+        # Description
+        if desired_state.get("description") != actual_state.get("description"):
+            payload["description"] = desired_state.get("description")
+    
         return payload
+
+
 
     @staticmethod
     def _compare_states(desired_state: dict, actual_state: dict) -> List[dict]:
-        """
-        Compare desired vs actual state and return only meaningful differences.
-
-        The removed "mode" field is intentionally not part of the comparison.
-        """
+    
         diffs = []
-
-        comparable_fields = [
-            ("native_vlan", "Native VLAN"),
-            ("allowed_vlans", "Allowed VLANs"),
-            ("description", "Description"),
-        ]
-
-        for field_key, label in comparable_fields:
-            desired_value = desired_state.get(field_key)
-            actual_value = actual_state.get(field_key)
-
-            # Normalise blanks for stable comparisons.
-            desired_value = [] if desired_value is None and field_key == "allowed_vlans" else desired_value
-            actual_value = [] if actual_value is None and field_key == "allowed_vlans" else actual_value
-
-            if desired_value != actual_value:
-                diffs.append(
-                    {
-                        "field": label,
-                        "desired": desired_value,
-                        "actual": actual_value,
-                    }
-                )
-
+    
+        fields = ["native_vlan", "allowed_vlans", "description"]
+    
+        for f in fields:
+            if desired_state.get(f) != actual_state.get(f):
+                dif               "field": f,
+                    "desired": desired_state.get(f),
+                    "actual": actual_state.get(f),
+                })
+    
         return diffs
 
-    def _humanise_actual_state(self, normalised_port: Optional[dict]) -> dict:
-        """
-        Extract the operator-relevant Forti state from a normalised port row.
 
-        Any non-numeric allowed VLAN tokens are filtered out here as well.
-        """
+
+    def _humanise_actual_state(self, normalised_port: Optional[dict]) -> dict:
+    
         if not normalised_port:
             return {
                 "native_vlan": None,
                 "allowed_vlans": [],
                 "description": None,
             }
-
-        raw_native_vlan = self._get_first_present(
-            normalised_port,
-            "native_vlan",
-            "native-vlan",
-            "nativeVlan",
-            "native",
-            default=None,
-        )
-
-        raw_allowed_vlans = self._get_first_present(
-            normalised_port,
-            "allowed_vlans",
-            "allowed-vlans",
-            "allowedVlans",
-            "allowed",
-            default=[],
-        )
-
-        description = self._get_first_present(
-            normalised_port,
-            "description",
-            "alias",
-            "desc",
-            default=None,
-        )
-
+    
+        port = normalised_port
+    
+        native_vlan = port.get("vlan")
+    
+        allowed_vlans = []
+        for item in port.get("allowed-vlans", []):
+            if isinstance(item, dict):
+                name = item.get("vlan-name")
+                if name:
+                    allowed_vlans.append(name)
+    
         return {
-            "native_vlan": self._coerce_vlan_id(raw_native_vlan),
-            "allowed_vlans": self._extract_numeric_vlans(raw_allowed_vlans),
-            "description": description,
+            "native_vlan": native_vlan,
+            "allowed_vlans": allowed_vlans,
+            "description": port.get("description"),
         }
+
 
     # ------------------------------------------------------------------
     # Bulk port action helpers
     # ------------------------------------------------------------------
+   
     def _handle_port_action(
         self,
         action: str,
@@ -962,27 +918,29 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         dry_run: bool,
         warnings_list: List[str],
     ) -> dict:
-        """
-        Execute one action for one selected port and return a structured result.
-        """
+    
         interface = self._get_interface_by_name(device, port_name)
-
-        # Safety warnings/errors at row level.
+    
         row_warnings = list(warnings_list)
         row_errors = []
-
+    
         if self._is_uplink_candidate(interface):
             row_errors.append("Port appears to be an uplink candidate in NetBox.")
+    
         if self._is_connected(interface):
             row_warnings.append("NetBox indicates this port is connected.")
-
-        # Always read current live state first.
+    
         live_raw = client.get_port(switch_identifier, port_name)
         live_normalised = client.normalise_port_response(live_raw)
+    
         actual_state = self._humanise_actual_state(live_normalised.get("port"))
-
+    
+        diffs = self._compare_states(desired_state, actual_state)
+    
+        # BUILD PAYLOAD FROM DIFF ONLY
+        payload = self._build_forti_payload(desired_state, actual_state)
+    
         if action == "validate":
-            diffs = self._compare_states(desired_state, actual_state)
             return {
                 "port_name": port_name,
                 "action": "validate",
@@ -993,10 +951,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 "actual_state": actual_state,
                 "diffs": diffs,
             }
-
+    
         if action == "deploy":
-            payload = self._build_forti_payload(desired_state)
-
+    
             if row_errors:
                 return {
                     "port_name": port_name,
@@ -1007,9 +964,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                     "desired_state": desired_state,
                     "actual_state": actual_state,
                     "payload": payload,
-                    "diffs": self._compare_states(desired_state, actual_state),
+                    "diffs": diffs,
                 }
-
+    
             if dry_run:
                 return {
                     "port_name": port_name,
@@ -1020,19 +977,18 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                     "desired_state": desired_state,
                     "actual_state": actual_state,
                     "payload": payload,
-                    "diffs": self._compare_states(desired_state, actual_state),
+                    "diffs": diffs,
                 }
-
-            update_result = client.update_port(
-                switch_identifier=switch_identifier,
-                port_name=port_name,
-                payload=payload,
-            )
-
-            live_after_raw = client.get_port(switch_identifier, port_name)
-            live_after_normalised = client.normalise_port_response(live_after_raw)
-            after_state = self._humanise_actual_state(live_after_normalised.get("port"))
-
+    
+            # Only call API if payload not empty
+            update_result = {}
+            if payload:
+                update_result = client.update_port(
+                    switch_identifier=switch_identifier,
+                    port_name=port_name,
+                    payload=payload,
+                )
+    
             return {
                 "port_name": port_name,
                 "action": "deploy",
@@ -1040,15 +996,12 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 "warnings": row_warnings,
                 "errors": row_errors,
                 "desired_state": desired_state,
-                "actual_state": after_state,
+                "actual_state": actual_state,
                 "payload": payload,
-                "update_result": {
-                    "http_status": update_result.get("http_status"),
-                    "status": update_result.get("status"),
-                },
-                "diffs": self._compare_states(desired_state, after_state),
+                "update_result": update_result,
+                "diffs": diffs,
             }
-
+    
         if action == "sync":
             return {
                 "port_name": port_name,
@@ -1061,16 +1014,6 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 "diffs": [],
             }
 
-        return {
-            "port_name": port_name,
-            "action": action,
-            "status": "error",
-            "warnings": row_warnings,
-            "errors": ["Unknown action requested."],
-            "desired_state": desired_state,
-            "actual_state": actual_state,
-            "diffs": [],
-        }
 
     def _summarise_bulk_results(
         self,
