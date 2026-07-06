@@ -964,7 +964,8 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         """
         diffs = []
 
-        comparable_fields = ("native_vlan", "Native VLAN"),
+        comparable_fields = [
+            ("native_vlan", "Native VLAN"),
             ("allowed_vlans", "Allowed VLANs"),
             ("description", "Description"),
         ]
