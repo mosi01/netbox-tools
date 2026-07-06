@@ -874,7 +874,9 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         diffs = []
     
         desired_native = desired_state.get("native_vlan") or None
-        actual_native = actual_state.get("native_vlan") or Noned_allowed = desired_state.get("allowed_vlans") or []
+        actual_native = actual_state.get("native_vlan") or None
+      
+        desired_allowed = desired_state.get("allowed_vlans") or []
         actual_allowed = actual_state.get("allowed_vlans") or []
     
         desired_description = desired_state.get("description")
