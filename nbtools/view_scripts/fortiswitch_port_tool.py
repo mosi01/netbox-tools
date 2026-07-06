@@ -888,23 +888,14 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
 
 
-    def _humanise_actual_state(self, normalised_port):
-        """
-        Extract actual Forti state using VLAN names directly.
-        """
+    def _humanise_actual_state(self, port):
     
-        if not normalised_port:
+        if not isinstance(port, dict):
             return {
                 "native_vlan": "",
                 "allowed_vlans": [],
                 "description": "",
             }
-    
-        # Forti returns either wrapped {"port": {...}} or direct
-        if "port" in normalised_port:
-            port = normalised_port["port"]
-        else:
-            port = normalised_port
     
         native_vlan = port.get("vlan") or ""
     
@@ -955,8 +946,14 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     
         live_raw = client.get_port(switch_identifier, port_name)
         live_normalised = client.normalise_port_response(live_raw)
-    
-        actual_state = self._humanise_actual_state(live_normalised.get("port"))
+        
+        # handle both structures safely
+        port_data = live_normalised.get("port") if isinstance(live_normalised, dict) else None
+        if not port_data:
+            port_data = live_normalised
+        
+        actual_state = self._humanise_actual_state(port_data)
+
     
         diffs = self._compare_states(desired_state, actual_state)
     
