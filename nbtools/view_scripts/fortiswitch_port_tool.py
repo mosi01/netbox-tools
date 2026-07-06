@@ -889,42 +889,42 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
 
     def _humanise_actual_state(self, normalised_port):
-    """
-    Extract actual Forti state using VLAN names directly.
-    """
-
-    if not normalised_port:
+        """
+        Extract actual Forti state using VLAN names directly.
+        """
+    
+        if not normalised_port:
+            return {
+                "native_vlan": "",
+                "allowed_vlans": [],
+                "description": "",
+            }
+    
+        # Forti returns either wrapped {"port": {...}} or direct
+        if "port" in normalised_port:
+            port = normalised_port["port"]
+        else:
+            port = normalised_port
+    
+        native_vlan = port.get("vlan") or ""
+    
+        allowed_vlans = []
+        raw_allowed = port.get("allowed-vlans", [])
+    
+        if isinstance(raw_allowed, list):
+            for item in raw_allowed:
+                if isinstance(item, dict):
+                    name = item.get("vlan-name")
+                    if name:
+                        allowed_vlans.append(name)
+    
+        description = port.get("description") or ""
+    
         return {
-            "native_vlan": "",
-            "allowed_vlans": [],
-            "description": "",
+            "native_vlan": native_vlan,
+            "allowed_vlans": allowed_vlans,
+            "description": description,
         }
-
-    # Forti returns either wrapped {"port": {...}} or direct
-    if "port" in normalised_port:
-        port = normalised_port["port"]
-    else:
-        port = normalised_port
-
-    native_vlan = port.get("vlan") or ""
-
-    allowed_vlans = []
-    raw_allowed = port.get("allowed-vlans", [])
-
-    if isinstance(raw_allowed, list):
-        for item in raw_allowed:
-            if isinstance(item, dict):
-                name = item.get("vlan-name")
-                if name:
-                    allowed_vlans.append(name)
-
-    description = port.get("description") or ""
-
-    return {
-        "native_vlan": native_vlan,
-        "allowed_vlans": allowed_vlans,
-        "description": description,
-    }
 
     # ------------------------------------------------------------------
     # Bulk port action helpers
