@@ -12,6 +12,7 @@ Compatible with NetBox 4.5.0
 
 from django.db import models
 from django.urls import reverse
+from django.core.exceptions import ValidationError
 
 # NetBox base model
 from netbox.models import NetBoxModel
@@ -277,3 +278,221 @@ class FortiSiteBinding(NetBoxModel):
         return reverse("plugins:nbtools:fortisitebinding_delete", args=[self.pk])
 
 
+# ---------------------------------------------------------------------------
+# FortiSwitch Port Configuration
+# ---------------------------------------------------------------------------
+
+class FortiSwitchPortConfiguration(NetBoxModel):
+    """
+    Predefined FortiSwitch port configuration profile.
+
+    Scope
+    -----
+    - Global profile:
+        site = None
+        Available for all sites.
+
+    - Site-specific profile:
+        site = Site
+        Available only for that site.
+
+    Purpose
+    -------
+    This model stores reusable FortiSwitch port configurations that can be
+    selected in the FortiSwitch Port Tool instead of manually entering Native
+    VLAN, Allowed VLANs and optionally Description.
+
+    The selected configuration should be converted by the view into the same
+    desired_state structure as manual input:
+
+        {
+            "native_vlan": "...",
+            "allowed_vlans": [...],
+            "description": "..."
+        }
+
+    This means the existing validation, dry-run, payload generation and deploy
+    logic can stay unchanged.
+    """
+
+    name = models.CharField(
+        max_length=100,
+        help_text="Name of the predefined port configuration.",
+    )
+
+    enabled = models.BooleanField(
+        default=True,
+        help_text="If disabled, this configuration cannot be selected in the port tool.",
+    )
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="fortiswitch_port_configurations",
+        null=True,
+        blank=True,
+        help_text=(
+            "Leave empty for a global configuration. "
+            "Select a site to make this configuration available only for that site."
+        ),
+    )
+
+    native_vlan = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        help_text="Forti native VLAN value, for example VLAN_10, CLIENTS or 10.",
+    )
+
+    allowed_vlans = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            "List of Forti allowed VLAN values. "
+            "These should match the VLAN names/values returned by FortiGate."
+        ),
+    )
+
+    apply_description = models.BooleanField(
+        default=False,
+        help_text=(
+            "If enabled, this configuration also controls the FortiSwitch port description. "
+            "When enabled, Port description is required."
+        ),
+    )
+
+    match_description = models.BooleanField(
+        default=False,
+        help_text=(
+            "If enabled, sync/readback matching also requires the live FortiSwitch "
+            "port description to match this configuration."
+        ),
+    )
+
+    port_description = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=(
+            "Optional FortiSwitch port description. "
+            "Required when Apply description or Match description is enabled."
+        ),
+    )
+
+    description = models.TextField(
+        blank=True,
+        default="",
+        help_text="Administrative description of this predefined configuration.",
+    )
+
+    comments = models.TextField(
+        blank=True,
+        default="",
+        help_text="Optional internal comments.",
+    )
+
+    class Meta:
+        ordering = ["site__name", "name"]
+        verbose_name = "FortiSwitch port configuration"
+        verbose_name_plural = "FortiSwitch port configurations"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=models.Q(site__isnull=True),
+                name="nbtools_fsw_port_cfg_unique_global_name",
+            ),
+            models.UniqueConstraint(
+                fields=["site", "name"],
+                condition=models.Q(site__isnull=False),
+                name="nbtools_fsw_port_cfg_unique_site_name",
+            ),
+        ]
+
+    def __str__(self):
+        if self.site:
+            return f"{self.name} ({self.site.name})"
+        return f"{self.name} (Global)"
+
+    def clean(self):
+        """
+        Validate and normalise the configuration.
+
+        Rules
+        -----
+        - Allowed VLANs must be a list.
+        - Empty VLAN values are removed.
+        - Native VLAN is normalised to a stripped string.
+        - Port description is required if Apply description is enabled.
+        - Port description is also required if Match description is enabled.
+        """
+
+        super().clean()
+
+        if self.allowed_vlans is None:
+            self.allowed_vlans = []
+
+        if not isinstance(self.allowed_vlans, list):
+            raise ValidationError({
+                "allowed_vlans": "Allowed VLANs must be stored as a list."
+            })
+
+        cleaned_allowed_vlans = []
+
+        for vlan in self.allowed_vlans:
+            if vlan in (None, ""):
+                continue
+
+            cleaned_value = str(vlan).strip()
+
+            if cleaned_value:
+                cleaned_allowed_vlans.append(cleaned_value)
+
+        self.allowed_vlans = cleaned_allowed_vlans
+
+        if self.native_vlan:
+            self.native_vlan = str(self.native_vlan).strip()
+
+        if self.port_description:
+            self.port_description = str(self.port_description).strip()
+
+        if self.apply_description and not self.port_description:
+            raise ValidationError({
+                "port_description": (
+                    "Port description is required when Apply description is enabled."
+                )
+            })
+
+        if self.match_description and not self.port_description:
+            raise ValidationError({
+                "port_description": (
+                    "Port description is required when Match description is enabled."
+                )
+            })
+
+    def get_absolute_url(self):
+        """
+        Return the object detail/list URL.
+
+        If you do not create a dedicated detail view for this object, this can
+        safely point to the configuration list view.
+        """
+        return reverse("plugins:nbtools:fortiswitch_port_configuration_list")
+
+    def get_edit_url(self):
+        """
+        Return the object edit URL.
+        """
+        return reverse(
+            "plugins:nbtools:fortiswitch_port_configuration_edit",
+            args=[self.pk],
+        )
+
+    def get_delete_url(self):
+        """
+        Return the object delete URL.
+        """
+        return reverse(
+            "plugins:nbtools:fortiswitch_port_configuration_delete",
+            args=[self.pk],
+        )
