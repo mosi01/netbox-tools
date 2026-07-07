@@ -1,0 +1,88 @@
+{% extends "base/layout.html" %}
+
+{% block title %}{{ object.name }}{% endblock %}
+
+{% block content %}
+
+<div class="row">
+
+    <div class="col-md-6">
+
+        <div class="card">
+            <div class="card-header">
+                <strong>FortiSwitch Port Configuration</strong>
+            </div>
+
+            <div class="card-body">
+
+                <table class="table table-hover attr-table">
+
+                    <tr>
+                        <th>Name</th>
+                        <td>{{ object.name }}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Site</th>
+                        <td>
+                            {% if object.site %}
+                                {{ object.site }}
+                            {% else %}
+                                <span class="text-muted">Global</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Native VLAN</th>
+                        <td>{{ object.native_vlan|default:"-" }}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Allowed VLANs</th>
+                        <td>
+                            {% if object.allowed_vlans %}
+                                {{ object.allowed_vlans|join:", " }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Apply Description</th>
+                        <td>
+                            {% if object.apply_description %}
+                                Yes
+                            {% else %}
+                                No
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Description</th>
+                        <td>{{ object.port_description|default:"-" }}</td>
+                    </tr>
+
+                    <tr>
+                        <th>Status</th>
+                        <td>
+                            {% if object.enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
