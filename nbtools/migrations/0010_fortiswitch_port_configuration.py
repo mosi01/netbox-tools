@@ -7,8 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dcim", "0001_initial"),
-        ("nbtools", "000X_previous_migration_name"),
+        ("nbtools", "0009_fortisitebinding_comments_fix"),
     ]
 
     operations = [
