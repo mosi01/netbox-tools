@@ -34,6 +34,7 @@ from .view_scripts.fortiswitch_port_configuration import (
     FortiSwitchPortConfigurationListView, 
     FortiSwitchPortConfigurationEditView, 
     FortiSwitchPortConfigurationDeleteView,
+    FortiSwitchPortConfigurationChangeLogView,
 )
 
 # FortiSiteBinding CRUD + changelog views
