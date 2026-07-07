@@ -71,6 +71,31 @@ urlpatterns = [
     ),
 
     # ------------------------------------------------------------------
+    # FortiSwitch Port Configuration
+    # ------------------------------------------------------------------     
+    path(
+        "fortiswitch-port-configurations/",
+        FortiSwitchPortConfigurationListView.as_view(),
+        name="fortiswitch_port_configuration_list",
+    ),
+    path(
+        "fortiswitch-port-configurations/add/",
+        FortiSwitchPortConfigurationEditView.as_view(),
+        name="fortiswitch_port_configuration_add",
+    ),
+    path(
+        "fortiswitch-port-configurations/<int:pk>/edit/",
+        FortiSwitchPortConfigurationEditView.as_view(),
+        name="fortiswitch_port_configuration_edit",
+    ),
+    path(
+        "fortiswitch-port-configurations/<int:pk>/delete/",
+        FortiSwitchPortConfigurationDeleteView.as_view(),
+        name="fortiswitch_port_configuration_delete",
+    ),
+
+    
+    # ------------------------------------------------------------------
     # FortiSiteBinding CRUD + changelog
     # ------------------------------------------------------------------
     path(
