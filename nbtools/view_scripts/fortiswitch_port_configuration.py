@@ -3,6 +3,8 @@ from django.urls import reverse
 
 from nbtools.models import FortiSwitchPortConfiguration
 from nbtools.forms import FortiSwitchPortConfigurationForm
+from nbtools.tables import FortiSwitchPortConfigurationTable
+from nbtools.filtersets import FortiSwitchPortConfigurationFilterSet
 
 
 class FortiSwitchPortConfigurationListView(generic.ObjectListView):
