@@ -131,7 +131,7 @@ class ApplicationFilterSet(NetBoxModelFilterSet):
         )
 
 
-class FortiSwitchPortConfigurationFilterSet(FilterSet):
+class FortiSwitchPortConfigurationFilterSet(NetBoxModelFilterSet):
 
     name = CharFilter(lookup_expr="icontains")
 
