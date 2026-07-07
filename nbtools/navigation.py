@@ -71,7 +71,7 @@ menu = PluginMenu(
                     auth_required=True,
                 ),
                 PluginMenuItem(
-                    link="plugins:nbtools:fortiswitch_port_configuration_list",
+                    link="plugins:nbtools:fortiswitchportconfiguration_list",
                     link_text="FortiSwitch Port Configurations",
                     permissions=["nbtools.view_fortiswitchportconfiguration"],
                 ),
