@@ -14,9 +14,6 @@
         FortiSwitch Port Tool
     </h2>
 
-    {# ============================================================ #}
-    {# ERRORS                                                       #}
-    {# ============================================================ #}
     {% if errors_list %}
     <div class="alert alert-danger">
         <strong>Errors:</strong>
@@ -28,9 +25,6 @@
     </div>
     {% endif %}
 
-    {# ============================================================ #}
-    {# WARNINGS                                                     #}
-    {# ============================================================ #}
     {% if warnings_list %}
     <div class="alert alert-warning">
         <strong>Warnings:</strong>
@@ -42,11 +36,6 @@
     </div>
     {% endif %}
 
-    {# ============================================================ #}
-    {# SELECTION (GET FORM)                                         #}
-    {# Separate GET form so changing site/device does not trigger    #}
-    {# POST validation or action errors.                            #}
-    {# ============================================================ #}
     <form method="get">
         <div class="card mb-3">
             <div class="card-header"><strong>Selection</strong></div>
@@ -89,20 +78,13 @@
         </div>
     </form>
 
-    {# ============================================================ #}
-    {# ACTION FORM (POST)                                            #}
-    {# ============================================================ #}
     {% if port_rows %}
     <form method="post">
         {% csrf_token %}
 
-        {# Keep the selected site/device through the POST action. #}
         <input type="hidden" name="site_id" value="{{ selected_site.id }}">
         <input type="hidden" name="device_id" value="{{ selected_device.id }}">
 
-        {# ============================================================ #}
-        {# PORT TABLE                                                  #}
-        {# ============================================================ #}
         <div class="card mb-3">
             <div class="card-header">
                 <strong>Switch Ports</strong>
@@ -149,15 +131,13 @@
 
                         <tr class="port-row">
 
-                            {# SELECT #}
                             <td>
                                 <input type="checkbox"
                                        name="selected_ports"
                                        value="{{ p.port_name }}"
-                                       class="port-selector">
+                                       class="form-check-input port-selector">
                             </td>
 
-                            {# PORT INFO #}
                             <td>
                                 <strong>{{ p.port_name }}</strong><br>
 
@@ -170,15 +150,14 @@
                                 {% endif %}
                             </td>
 
-                            {# PREDEFINED PORT CONFIGURATION #}
                             <td>
                                 {% if can_use_port_configurations %}
                                     <select name="port_configuration__{{ p.port_name }}"
                                             class="form-select form-select-sm port-configuration-select port-configurable"
                                             data-port-name="{{ p.port_name }}">
-                            
+
                                         <option value="">-- Manual --</option>
-                            
+
                                         {% for cfg in port_configurations %}
                                             <option value="{{ cfg.id }}"
                                                     data-native-vlan="{{ cfg.native_vlan|default:'' }}"
@@ -186,17 +165,17 @@
                                                     data-apply-description="{% if cfg.apply_description %}1{% else %}0{% endif %}"
                                                     data-port-description="{{ cfg.port_description|default:'' }}"
                                                     {% if p.matched_port_configuration_id == cfg.id %}selected{% endif %}>
-                            
+
                                                 {% if cfg.site %}
                                                     {{ cfg.name }} — {{ cfg.site.name }}
                                                 {% else %}
                                                     {{ cfg.name }} — Global
                                                 {% endif %}
-                            
+
                                             </option>
                                         {% endfor %}
                                     </select>
-                            
+
                                     <div class="form-text">
                                         Select a predefined configuration or leave as Manual.
                                     </div>
@@ -205,7 +184,6 @@
                                 {% endif %}
                             </td>
 
-                            {# NATIVE VLAN #}
                             <td>
                                 <select name="native_vlan__{{ p.port_name }}" class="form-select form-select-sm port-configurable">
                                     <option value="">-- None --</option>
@@ -218,9 +196,7 @@
                                 </select>
                             </td>
 
-                            {# ALLOWED VLANS (MULTI-SELECT) #}
                             <td>
-                                
                                 <select name="allowed_vlans__{{ p.port_name }}"
                                         class="form-select form-select-sm port-configurable"
                                         multiple>
@@ -236,7 +212,6 @@
                                 </div>
                             </td>
 
-                            {# DESCRIPTION #}
                             <td>
                                 <input type="text"
                                        name="description__{{ p.port_name }}"
@@ -244,7 +219,6 @@
                                        value="{{ p.description|default:'' }}">
                             </td>
 
-                            {# STATUS #}
                             <td>
                                 {{ p.status|default:"-" }}
                             </td>
@@ -269,9 +243,6 @@
             </div>
         </div>
 
-        {# ============================================================ #}
-        {# ACTIONS                                                     #}
-        {# ============================================================ #}
         <div class="card mb-3">
             <div class="card-body text-center">
 
@@ -293,9 +264,6 @@
     </form>
     {% endif %}
 
-    {# ============================================================ #}
-    {# RESULT PANEL                                                  #}
-    {# ============================================================ #}
     {% if result %}
 
     <div class="card">
@@ -374,24 +342,8 @@
 
 </div>
 
-<style>
-    .port-configurable:disabled {
-        background-color: #e9ecef !important;
-        pointer-events: none;
-        cursor: not-allowed;
-        opacity: 1;   /* keep text readable */
-    }
-    
-    .port-row.table-secondary {
-        opacity: 0.6;
-    }
-    .port-row.table-secondary .form-select,
-    .port-row.table-secondary .form-control {
-        background-color: #e9ecef;
-    }
-</style>
-
 {% endblock %}
+
 {% block javascript %}
 {{ block.super }}
 
@@ -400,29 +352,15 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function updateRowState(row) {
         const checkbox = row.querySelector(".port-selector");
-        if (!checkbox) return;
-    
+        if (!checkbox) {
+            return;
+        }
+
         const enabled = checkbox.checked;
-    
-        const inputs = row.querySelectorAll(".port-configurable");
-    
-        inputs.forEach(function(el) {
-    
-            // HARD disable (this is the important part)
-            el.disabled = !enabled;
-    
-            // Extra safety: block interaction visually + physically
-            if (!enabled) {
-                el.setAttribute("tabindex", "-1");
-                el.classList.add("disabled");
-            } else {
-                el.removeAttribute("tabindex");
-                el.classList.remove("disabled");
-            }
+
+        row.querySelectorAll(".port-configurable").forEach(function(element) {
+            element.disabled = !enabled;
         });
-    
-        // Grey out entire row
-        row.classList.toggle("table-secondary", !enabled);
     }
 
     document.querySelectorAll(".port-row").forEach(function(row) {
@@ -448,7 +386,10 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'select[name="native_vlan__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) return;
+        if (!element) {
+            return;
+        }
+
         element.value = nativeVlan || "";
     }
 
@@ -457,7 +398,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'select[name="allowed_vlans__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) return;
+        if (!element) {
+            return;
+        }
 
         const wanted = allowedVlans || [];
 
@@ -473,18 +416,26 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'input[name="description__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) return;
+        if (!element) {
+            return;
+        }
+
         element.value = description || "";
     }
 
     document.querySelectorAll(".port-configuration-select").forEach(function(select) {
         select.addEventListener("change", function() {
+            const row = this.closest(".port-row");
+            const checkbox = row ? row.querySelector(".port-selector") : null;
+
+            if (!checkbox || !checkbox.checked) {
+                return;
+            }
+
             const portName = this.dataset.portName;
             const selectedOption = this.options[this.selectedIndex];
 
-            if (!selectedOption) return;
-
-            if (!selectedOption.value) {
+            if (!selectedOption || !selectedOption.value) {
                 return;
             }
 
