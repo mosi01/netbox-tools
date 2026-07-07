@@ -1,21 +1,33 @@
-{% extends "base/layout.html" %}
+{% extends "generic/object.html" %}
 
-{% block title %}{{ object.name }}{% endblock %}
+{% block tabs %}
+<ul class="nav nav-tabs mb-3">
+
+    <li class="nav-item">
+        <a class="nav-link active     </a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link"
+           href="{% url 'plugins:nbtools:fortiswitchportconfiguration_changelog' object.pk %}">
+            Ch% endblock %}
+
 
 {% block content %}
 
 <div class="row">
 
-    <div class="col-md-6">
+    <!-- Left column -->
+    <div class="col-xl-6">
 
         <div class="card">
             <div class="card-header">
-                <strong>FortiSwitch Port Configuration</strong>
+                <strong>Configuration</strong>
             </div>
 
             <div class="card-body">
 
-                <table class="table table-hover attr-table">
+                <table class="table attr-table">
 
                     <tr>
                         <th>Name</th>
@@ -23,7 +35,7 @@
                     </tr>
 
                     <tr>
-                        <th>Site</th>
+                        <th>Scope</th>
                         <td>
                             {% if object.site %}
                                 {{ object.site }}
@@ -32,6 +44,36 @@
                             {% endif %}
                         </td>
                     </tr>
+
+                    <tr>
+                        <th>Status</th>
+                        <td>
+                            {% if object.enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Disabled</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                </table>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right column -->
+    <div class="col-xl-6">
+
+        <div class="card">
+            <div class="card-header">
+                <strong>VLAN Settings</strong>
+            </div>
+
+            <div class="card-body">
+
+                <table class="table attr-table">
 
                     <tr>
                         <th>Native VLAN</th>
@@ -49,31 +91,39 @@
                         </td>
                     </tr>
 
+                </table>
+
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="row mt-3">
+
+    <div class="col-xl-6">
+
+        <div class="card">
+            <div class="card-header">
+                <strong>Description</strong>
+            </div>
+
+            <div class="card-body">
+
+                <table class="table attr-table">
+
                     <tr>
                         <th>Apply Description</th>
                         <td>
-                            {% if object.apply_description %}
-                                Yes
-                            {% else %}
-                                No
-                            {% endif %}
+                            {{ object.apply_description|yesno:"Yes,No" }}
                         </td>
                     </tr>
 
                     <tr>
-                        <th>Description</th>
+                        <th>Text</th>
                         <td>{{ object.port_description|default:"-" }}</td>
-                    </tr>
-
-                    <tr>
-                        <th>Status</th>
-                        <td>
-                            {% if object.enabled %}
-                                <span class="badge bg-success">Enabled</span>
-                            {% else %}
-                                <span class="badge bg-secondary">Disabled</span>
-                            {% endif %}
-                        </td>
                     </tr>
 
                 </table>
