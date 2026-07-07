@@ -3,7 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
-from nbtools.forms.fortiswitch_port_configuration import FortiSwitchPortConfigurationForm
+from nbtools.forms import FortiSwitchPortConfigurationForm
 from nbtools.models import FortiSwitchPortConfiguration
 
 
