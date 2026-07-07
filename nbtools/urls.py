@@ -85,6 +85,11 @@ urlpatterns = [
         name="fortiswitchportconfiguration",
     ),
     path(
+        "fortiswitch-port-configurations/add/",
+        views.FortiSwitchPortConfigurationEditView.as_view(),
+        name="fortiswitchportconfiguration_add",
+    ),
+    path(
         "fortiswitch-port-configurations/<int:pk>/edit/",
         views.FortiSwitchPortConfigurationEditView.as_view(),
         name="fortiswitchportconfiguration_edit",
