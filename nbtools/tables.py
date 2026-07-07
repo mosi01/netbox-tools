@@ -16,7 +16,7 @@ NetBox version target: 4.5.0
 
 import django_tables2 as tables
 from netbox.tables import NetBoxTable
-from .models import Service, Application, FortiSiteBinding
+from .models import Service, Application, FortiSiteBinding, FortiSwitchPortConfiguration
 
 
 class FortiSiteBindingTable(NetBoxTable):
@@ -174,3 +174,34 @@ class ApplicationTable(NetBoxTable):
             "device_count",
             "vm_count",
         )
+
+
+class FortiSwitchPortConfigurationTable(NetBoxTable):
+
+    name = tables.Column(linkify=True)
+
+    site = tables.Column()
+
+    native_vlan = tables.Column(
+        accessor="native_vlan",
+        default="-"
+    )
+
+    allowed_vlans = tables.Column(
+        accessor="allowed_vlans",
+        default="-"
+    )
+
+    enabled = tables.BooleanColumn()
+
+    class Meta(NetBoxTable.Meta):
+        model = FortiSwitchPortConfiguration
+        fields = (
+            "name",
+            "site",
+            "native_vlan",
+            "allowed_vlans",
+            "apply_description",
+            "enabled",
+        )
+
