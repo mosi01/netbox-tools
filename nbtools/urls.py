@@ -70,6 +70,7 @@ urlpatterns = [
         name="fortiswitch_port_tool",
     ),
 
+       
     # ------------------------------------------------------------------
     # FortiSwitch Port Configuration
     # ------------------------------------------------------------------     
@@ -93,7 +94,8 @@ urlpatterns = [
         views.FortiSwitchPortConfigurationDeleteView.as_view(),
         name="fortiswitchportconfiguration_delete",
     ),
-
+    
+    
     
     # ------------------------------------------------------------------
     # FortiSiteBinding CRUD + changelog
