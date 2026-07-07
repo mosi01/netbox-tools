@@ -375,8 +375,19 @@
 </div>
 
 <style>
+    .port-configurable:disabled {
+        background-color: #e9ecef !important;
+        pointer-events: none;
+        cursor: not-allowed;
+        opacity: 1;   /* keep text readable */
+    }
+    
     .port-row.table-secondary {
-        opacity: 0.65;
+        opacity: 0.6;
+    }
+    .port-row.table-secondary .form-select,
+    .port-row.table-secondary .form-control {
+        background-color: #e9ecef;
     }
 </style>
 
@@ -390,15 +401,28 @@ document.addEventListener("DOMContentLoaded", function() {
     function updateRowState(row) {
         const checkbox = row.querySelector(".port-selector");
         if (!checkbox) return;
-
+    
         const enabled = checkbox.checked;
-
-        row.querySelectorAll(".port-configurable").forEach(function(element) {
-            element.disabled = !enabled;
+    
+        const inputs = row.querySelectorAll(".port-configurable");
+    
+        inputs.forEach(function(el) {
+    
+            // HARD disable (this is the important part)
+            el.disabled = !enabled;
+    
+            // Extra safety: block interaction visually + physically
+            if (!enabled) {
+                el.setAttribute("tabindex", "-1");
+                el.classList.add("disabled");
+            } else {
+                el.removeAttribute("tabindex");
+                el.classList.remove("disabled");
+            }
         });
-
+    
+        // Grey out entire row
         row.classList.toggle("table-secondary", !enabled);
-        row.style.opacity = enabled ? "1" : "0.6";
     }
 
     document.querySelectorAll(".port-row").forEach(function(row) {
