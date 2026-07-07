@@ -133,7 +133,7 @@ class ApplicationFilterSet(NetBoxModelFilterSet):
 
 class FortiSwitchPortConfigurationFilterSet(django_filters.FilterSet):
 
-    name = django_filters.CharFilter(lookup_expr="icontains")
+    name = CharFilter(lookup_expr="icontains")
 
     class Meta:
         model = FortiSwitchPortConfiguration
