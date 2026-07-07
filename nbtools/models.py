@@ -470,20 +470,22 @@ class FortiSwitchPortConfiguration(NetBoxModel):
                 )
             })
 
+    
     def get_absolute_url(self):
         return reverse(
             "plugins:nbtools:fortiswitchportconfiguration",
-            kwargs={"pk": self.pk}
+            args=[self.pk],
         )
+
 
     def get_edit_url(self):
         return reverse(
             "plugins:nbtools:fortiswitchportconfiguration",
-            kwargs={"pk": self.pk}
+            args=[self.pk],
         )
 
     def get_delete_url(self):
         return reverse(
             "plugins:nbtools:fortiswitchportconfiguration",
-            kwargs={"pk": self.pk}
+            args=[self.pk],
         )
