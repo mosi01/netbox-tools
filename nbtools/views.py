@@ -30,6 +30,7 @@ from .view_scripts.VM_tool import VMToolView
 from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 from .view_scripts.fortiswitch_port_tool import FortiSwitchPortToolView
 from .view_scripts.fortiswitch_port_configuration import (
+    FortiSwitchPortConfigurationView,
     FortiSwitchPortConfigurationListView, 
     FortiSwitchPortConfigurationEditView, 
     FortiSwitchPortConfigurationDeleteView,
