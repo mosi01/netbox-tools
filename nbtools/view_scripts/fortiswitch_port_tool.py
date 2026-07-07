@@ -56,7 +56,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render
 from django.views import View
-from django.db.models import Q.filter(Q(site__isnull=True) | Q(site=site))
+from django.db.models import Q
 
 from dcim.models import Device, Interface, Site
 
@@ -516,7 +516,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         port_configurations = self._get_port_configurations_for_site(
             site=selected_site,
-            user=getattr(self, "_current_user", None),
+            user=request.user,
         )
       
         return {
