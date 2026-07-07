@@ -136,6 +136,7 @@
                         <tr>
                             <th style="width:40px"></th>
                             <th>Port</th>
+                            <th style="width:260px">Port Configuration</th>
                             <th style="width:220px">Native VLAN</th>
                             <th style="width:280px">Allowed VLANs</th>
                             <th>Description</th>
@@ -165,6 +166,41 @@
 
                                 {% if p.netbox_connected %}
                                     <span class="badge bg-warning text-dark">Connected</span>
+                                {% endif %}
+                            </td>
+
+                            {# PREDEFINED PORT CONFIGURATION #}
+                            <td>
+                                {% if can_use_port_configurations %}
+                                    <select name="port_configuration__{{ p.port_name }}"
+                                            class="form-select form-select-sm port-configuration-select"
+                                            data-port-name="{{ p.port_name }}">
+                            
+                                        <option value="">-- Manual --</option>
+                            
+                                        {% for cfg in port_configurations %}
+                                            <option value="{{ cfg.id }}"
+                                                    data-native-vlan="{{ cfg.native_vlan|default:'' }}"
+                                                    data-allowed-vlans="{{ cfg.allowed_vlans|join:',' }}"
+                                                    data-apply-description="{% if cfg.apply_description %}1{% else %}0{% endif %}"
+                                                    data-port-description="{{ cfg.port_description|default:'' }}"
+                                                    {% if p.matched_port_configuration_id == cfg.id %}selected{% endif %}>
+                            
+                                                {% if cfg.site %}
+                                                    {{ cfg.name }} — {{ cfg.site.name }}
+                                                {% else %}
+                                                    {{ cfg.name }} — Global
+                                                {% endif %}
+                            
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                            
+                                    <div class="form-text">
+                                        Select a predefined configuration or leave as Manual.
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">No permission</span>
                                 {% endif %}
                             </td>
 
@@ -346,6 +382,83 @@ document.addEventListener("DOMContentLoaded", function() {
         width: '100%',
         closeOnSelect: false,
         placeholder: 'Select VLAN(s)'
+    });
+
+    function cssEscape(value) {
+        if (window.CSS && window.CSS.escape) {
+            return window.CSS.escape(value);
+        }
+
+        return value.replace(/(=>|\/@])/g, '\\$1');
+    }
+
+    function setNativeVlan(portName, nativeVlan) {
+        const escapedPortName = cssEscape(portName);
+        const selector = 'select[name="native_vlan__' + escapedPortName + '"]';
+        const element = document.querySelector(selector);
+
+        if (!element) {
+            return;
+        }
+
+        element.value = nativeVlan || "";
+    }
+
+    function setAllowedVlans(portName, allowedVlans) {
+        const escapedPortName = cssEscape(portName);
+        const selector = 'select[name="allowed_vlans__' + escapedPortName + '"]';
+        const element = document.querySelector(selector);
+
+        if (!element) {
+            return;
+        }
+
+        const wanted = allowedVlans || [];
+
+        Array.from(element.options).forEach(function(option) {
+            option.selected = wanted.includes(option.value);
+        });
+
+        $(element).trigger('change');
+    }
+
+    function setDescription(portName, description) {
+        const escapedPortName = cssEscape(portName);
+        const selector = 'input[name="description__' + escapedPortName + '"]';
+        const element = document.querySelector(selector);
+
+        if (!element) {
+            return;
+        }
+
+        element.value = description || "";
+    }
+
+    document.querySelectorAll(".port-configuration-select").forEach(function(select) {
+        select.addEventListener("change", function() {
+            const portName = this.dataset.portName;
+            const selectedOption = this.options[this.selectedIndex];
+
+            if (!selectedOption || !selectedOption.value) {
+                return;
+            }
+
+            const nativeVlan = selectedOption.dataset.nativeVlan || "";
+            const allowedVlansRaw = selectedOption.dataset.allowedVlans || "";
+            const applyDescription = selectedOption.dataset.applyDescription === "1";
+            const portDescription = selectedOption.dataset.portDescription || "";
+
+            const allowedVlans = allowedVlansRaw
+                ? allowedVlansRaw.split(",").map(v => v.trim()).filter(v => v !== "")
+                : [];
+
+            setNativeVlan(portName, nativeVlan);
+            setAllowedVlans(portName, allowedVlans);
+
+            if (applyDescription) {
+                setDescription(portName, portDescription);
+            }
+        });
     });
 });
 </script>
