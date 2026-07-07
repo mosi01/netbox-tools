@@ -147,13 +147,14 @@
                     <tbody>
                         {% for p in port_rows %}
 
-                        <tr>
+                        <tr class="port-row">
 
                             {# SELECT #}
                             <td>
                                 <input type="checkbox"
                                        name="selected_ports"
-                                       value="{{ p.port_name }}">
+                                       value="{{ p.port_name }}"
+                                       class="port-selector">
                             </td>
 
                             {# PORT INFO #}
@@ -173,7 +174,7 @@
                             <td>
                                 {% if can_use_port_configurations %}
                                     <select name="port_configuration__{{ p.port_name }}"
-                                            class="form-select form-select-sm port-configuration-select"
+                                            class="form-select form-select-sm port-configuration-select port-configurable"
                                             data-port-name="{{ p.port_name }}">
                             
                                         <option value="">-- Manual --</option>
@@ -206,7 +207,7 @@
 
                             {# NATIVE VLAN #}
                             <td>
-                                <select name="native_vlan__{{ p.port_name }}" class="form-select form-select-sm">
+                                <select name="native_vlan__{{ p.port_name }}" class="form-select form-select-sm port-configurable">
                                     <option value="">-- None --</option>
                                     {% for vlan in available_vlans %}
                                         <option value="{{ vlan.id }}"
@@ -221,7 +222,7 @@
                             <td>
                                 
                                 <select name="allowed_vlans__{{ p.port_name }}"
-                                        class="form-select form-select-sm select2"
+                                        class="form-select form-select-sm select2 port-configurable"
                                         multiple>
                                     {% for vlan in available_vlans %}
                                         <option value="{{ vlan.id }}"
@@ -239,7 +240,7 @@
                             <td>
                                 <input type="text"
                                        name="description__{{ p.port_name }}"
-                                       class="form-control form-control-sm"
+                                       class="form-control form-control-sm port-configurable"
                                        value="{{ p.description|default:'' }}">
                             </td>
 
@@ -378,6 +379,47 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    function updateRowState(row) {
+
+        const checkbox = row.querySelector(".port-selector");
+    
+        if (!checkbox) {
+            return;
+        }
+    
+        const enabled = checkbox.checked;
+    
+        row.querySelectorAll(".port-configurable").forEach(function(element) {
+    
+            element.disabled = !enabled;
+    
+            if (enabled) {
+                element.classList.remove("bg-light");
+            } else {
+                element.classList.add("bg-light");
+            }
+        });
+    
+        if (enabled) {
+            row.classList.remove("table-secondary");
+        } else {
+            row.classList.add("table-secondary");
+        }
+    }
+    
+    document.querySelectorAll(".port-row").forEach(function(row) {
+    
+        updateRowState(row);
+    
+        const checkbox = row.querySelector(".port-selector");
+    
+        if (checkbox) {
+            checkbox.addEventListener("change", function() {
+                updateRowState(row);
+            });
+        }
+    });
+    
     $('.select2').select2({
         width: '100%',
         closeOnSelect: false,
@@ -465,6 +507,11 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
+
+.port-row.table-secondary {
+    opacity: 0.65;
+}
+    
 </script>
 
 {% endblock %}
