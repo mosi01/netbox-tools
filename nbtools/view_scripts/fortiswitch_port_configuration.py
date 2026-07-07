@@ -23,3 +23,7 @@ class FortiSwitchPortConfigurationEditView(generic.ObjectEditView):
 
 class FortiSwitchPortConfigurationDeleteView(generic.ObjectDeleteView):
     queryset = FortiSwitchPortConfiguration.objects.all()
+
+
+class FortiSwitchPortConfigurationChangeLogView(generic.ObjectChangeLogView):
+    queryset = FortiSwitchPortConfiguration.objects.all()
