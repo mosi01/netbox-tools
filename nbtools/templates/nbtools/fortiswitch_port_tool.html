@@ -46,7 +46,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Site</label>
                         <select name="site_id" class="form-select" onchange="this.form.submit()">
-                            <option value="">-- Select Site --</option>
+                            <option value="">-- Select Bound Site --</option>
                             {% for site in sites %}
                                 <option value="{{ site.id }}"
                                     {% if selected_site and selected_site.id == site.id %}selected{% endif %}>
