@@ -4,30 +4,39 @@
 
 {% block content %}
 
-<div class="container-fluid">
+<div class="row justify-content-center">
+    <div class="col-md-6">
 
-    <h2 class="mb-4">
-        <i class="mdi mdi-delete"></i>
-        Delete FortiSwitch Port Configuration
-    </h2>
+        <form method="post">
+            {% csrf_token %}
 
-    <div class="alert alert-danger">
-        Are you sure you want to delete
-        <strong>{{ object.name }}</strong>?
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <strong>Confirm Deletion</strong>
+                </div>
+
+                <div class="card-body">
+                    <p>
+                        Are you sure you want to delete
+                        <strong>{{ object.name }}</strong>?
+                    </p>
+                </div>
+
+                <div class="card-footer text-end">
+
+                    <a href="{% url 'plugins:nbtools:fortiswitch_port_configuration_list' %}"
+                       class="btn btn-outline
+
+                    <button type="submit" class="btn btn-danger">
+                        Delete
+                    </button>
+
+                </div>
+            </div>
+
+        </form>
+
     </div>
-
-    <form method="post">
-        {% csrf_token %}
-
-        <button type="submit" class="btn btn-danger">
-            Delete
-        </button>
-
-        {% url 'plugins:nbtools:fortiswitch_port_configuration_list' %}
-            Cancel
-        </a>
-    </form>
-
 </div>
 
 {% endblock %}
