@@ -8,6 +8,7 @@ from nbtools.forms import FortiSwitchPortConfigurationForm
 class FortiSwitchPortConfigurationListView(generic.ObjectListView):
     queryset = FortiSwitchPortConfiguration.objects.select_related("site")
     table = FortiSwitchPortConfigurationTable
+    filterset = FortiSwitchPortConfigurationFilterSet
 
 
 class FortiSwitchPortConfigurationEditView(generic.ObjectEditView):
