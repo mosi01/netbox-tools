@@ -388,8 +388,8 @@ document.addEventListener("DOMContentLoaded", function() {
         if (window.CSS && window.CSS.escape) {
             return window.CSS.escape(value);
         }
-
-        return value.replace(/(=>|\/@])/g, '\\$1');
+    
+        return value;
     }
 
     function setNativeVlan(portName, nativeVlan) {
@@ -439,7 +439,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const portName = this.dataset.portName;
             const selectedOption = this.options[this.selectedIndex];
 
-            if (!selectedOption || !selectedOption.value) {
+            if (!selectedOption) {
+                return;
+            }
+            
+            if (!selectedOption.value) {
                 return;
             }
 
