@@ -106,6 +106,8 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         device_id = request.GET.get("device_id", "").strip()
 
         site = self._get_site(site_id)
+        vlan_mapping = self._load_vlan_mapping(site)
+        self._vlan_mapping = vlan_mapping
 
         # Auto-select the first device when a site is selected and no device
         # has yet been chosen by the operator.
@@ -146,6 +148,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             result=None,
             warnings_list=warnings_list,
             errors_list=errors_list,
+            vlan_mapping=vlan_mapping,
         )
         return render(request, self.template_name, context)
 
@@ -183,6 +186,11 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         # Resolve selected objects
         # --------------------------------------------------------------
         site = self._get_site(submitted_data["site_id"])
+
+        vlan_mapping = self._load_vlan_mapping(site)
+        self._vlan_mapping = vlan_mapping
+
+      
         if site and not FortiSiteBinding.objects.filter(site=site, enabled=True).exists():
             errors_list.append("Selected site is not bound in FortiSiteBinding.")            
             site = None
@@ -251,6 +259,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 result=result,
                 warnings_list=warnings_list,
                 errors_list=errors_list,
+                vlan_mapping=vlan_mapping,
             )
             return render(request, self.template_name, context)
 
@@ -329,6 +338,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             result=result,
             warnings_list=warnings_list,
             errors_list=errors_list,
+            vlan_mapping=vlan_mapping,
         )
         return render(request, self.template_name, context)
 
@@ -495,6 +505,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         result: Optional[dict],
         warnings_list: List[str],
         errors_list: List[str],
+        vlan_mapping: dict,
     ) -> dict:
         """
         Build page context for both GET and POST.
@@ -556,6 +567,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             "result": result,
             "warnings_list": warnings_list,
             "errors_list": errors_list,
+            "vlan_mapping": vlan_mapping,
             "action_help": {
                 "validate": "Compare desired values against live FortiSwitch state.",
                 "deploy": "Push desired values to FortiSwitch. If dry_run is checked, only preview payloads.",
@@ -584,6 +596,45 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             if device_id and device_id.isdigit()
             else None
         )
+
+    def _load_vlan_mapping(self, site):
+        """
+        Load VLAN mapping from Forti interfaces.
+    
+        Returns:
+            dict: {
+                "461-AP-Mgmt": "461",
+                ...
+            }
+        """
+    
+        if not site:
+            return {}
+    
+        binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
+        if not binding:
+            return {}
+    
+        try:
+            client = FortiAPIClient(binding)
+    
+            # This must return system interfaces
+            interfaces = client.get_interfaces()
+    
+            mapping = {}
+    
+            for iface in interfaces:
+                name = iface.get("name")
+                vlan_id = iface.get("vlanid")
+    
+                if name and vlan_id:
+                    mapping[name] = str(vlan_id)
+    
+            return mapping
+    
+        except Exception:
+            return {}
+
 
     @staticmethod
     def _get_first_device_for_site(site_id: int):
@@ -1091,13 +1142,30 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # ------------------------------------------------------------------
     
     def _build_forti_payload(self, desired_state, actual_state):
+
         payload = {}
     
-        desired_native = desired_state.get("native_vlan") or None
-        actual_native = actual_state.get("native_vlan") or None
+        vlan_mapping = getattr(self, "_vlan_mapping", {})
     
-        desired_allowed = desired_state.get("allowed_vlans") or []
-        actual_allowed = actual_state.get("allowed_vlans") or []
+        def resolve_vlan(value):
+            if not value:
+                return None
+            if value in vlan_mapping:
+                return vlan_mapping[value]
+            return value
+    
+        desired_native = resolve_vlan(desired_state.get("native_vlan"))
+        actual_native = resolve_vlan(actual_state.get("native_vlan"))
+    
+        desired_allowed = [
+            resolve_vlan(v)
+            for v in (desired_state.get("allowed_vlans") or [])
+        ]
+    
+        actual_allowed = [
+            resolve_vlan(v)
+            for v in (actual_state.get("allowed_vlans") or [])
+        ]
     
         desired_description = desired_state.get("description")
         actual_description = actual_state.get("description")
@@ -1107,11 +1175,13 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         if actual_description == "":
             actual_description = None
     
-        if desired_native != actual_native and desired_native is not None:
+        if desired_native != actual_native and desired_native:
             payload["vlan"] = desired_native
     
         if desired_allowed != actual_allowed:
-            payload["allowed-vlans"] = desired_allowed
+            payload["allowed-vlans"] = " ".join(
+                v for v in desired_allowed if v
+            )
     
         if desired_description != actual_description:
             payload["description"] = "" if desired_description is None else desired_description
