@@ -159,6 +159,39 @@ class FortiAPIClient:
         )
         return self._request("PUT", endpoint, data=payload)
 
+    
+    def _load_vlan_mapping(self, site):
+        """
+        Load VLAN mapping from Forti interfaces.
+        Returns:
+            dict: {label -> vlan_id}
+        """
+    
+        binding = FortiSiteBinding.objects.filter(site=site, enabled=True).first()
+        if not binding:
+            return {}
+    
+        try:
+            client = FortiAPIClient(binding)
+    
+            # You need interface list from Forti
+            interfaces = client.get_interfaces()
+    
+            mapping = {}
+    
+            for iface in interfaces:
+                vlan_id = iface.get("vlanid")
+                name = iface.get("name")
+    
+                if vlan_id and name:
+                    mapping[name] = str(vlan_id)
+    
+            return mapping
+    
+        except Exception:
+            return {}
+
+    
     # ------------------------------------------------------------------
     # Response normalisation helpers
     # ------------------------------------------------------------------
