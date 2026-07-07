@@ -159,6 +159,30 @@ class FortiSwitchPortConfigurationForm(forms.ModelForm):
 
         return values
 
+    def clean(self):
+        cleaned_data = super().clean()
+
+        apply_description = cleaned_data.get("apply_description")
+        match_description = cleaned_data.get("match_description")
+        port_description = cleaned_data.get("port_description")
+
+        if port_description:
+            port_description = str(port_description).strip()
+
+        if apply_description and not port_description:
+            self.add_error(
+                "port_description",
+                "Port description is required when Apply description is enabled.",
+            )
+
+        if match_description and not port_description:
+            self.add_error(
+                "port_description",
+                "Port description is required when Match description is enabled.",
+            )
+
+        return cleaned_data
+    
     def save(self, commit=True):
         instance = super().save(commit=False)
         instance.allowed_vlans = self.cleaned_data.get("allowed_vlans_text") or []
