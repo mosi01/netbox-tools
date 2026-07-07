@@ -1,65 +1,38 @@
 {% extends "base/layout.html" %}
+{% load form_helpers %}
 
 {% block title %}FortiSwitch Port Configuration{% endblock %}
 
 {% block content %}
 
-<div class="container-fluid">
+<form method="post">
+    {% csrf_token %}
 
-    <h2 class="mb-4">
-        <i class="mdi mdi-pencil"></i>
-        FortiSwitch Port Configuration
-    </h2>
+    <div class="card">
 
-    <form method="post">
-        {% csrf_token %}
-
-        <div class="card">
-            <div class="card-header">
-                <strong>Configuration</strong>
-            </div>
-
-            <div class="card-body">
-
-                {% if form.errors %}
-                    <div class="alert alert-danger">
-                        Please correct the errors below.
-                    </div>
-                {% endif %}
-
-                {% for field in form %}
-                    <div class="mb-3">
-                        <label class="form-label" for="{{ field.id_for_label }}">
-                            {{ field.label }}
-                        </label>
-
-                        {{ field }}
-
-                        {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
-                        {% endif %}
-
-                        {% for error in field.errors %}
-                            <div class="text-danger small">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                {% endfor %}
-
-            </div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>FortiSwitch Port Configuration</strong>
         </div>
 
-        <div class="mt-3">
+        <div class="card-body">
+
+            {{ form|render_form }}
+
+        </div>
+
+        <div class="card-footer text-end">
+
+            <a href="{% url 'plugins:nbtools:fortiswitch_port_configuration_list' %}        Cancel
+            </a>
+
             <button type="submit" class="btn btn-primary">
                 Save
             </button>
 
-            <a href="{% url 'plugins:nbtools:fortiswitch_port_configuration_list' %}">
-                Cancel
-            </a>
         </div>
 
-    </form>
+    </div>
 
-</div>
+</form>
 
 {% endblock %}
