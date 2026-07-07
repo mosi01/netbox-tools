@@ -7,7 +7,7 @@ Forms for 4.5.x / 4.6.x style plugin forms.Forms for the NetBox Tools plugin.
 from django import forms
 from django.conf import settings
 
-from dcim.models import site
+from dcim.models import Site
 
 from netbox.forms import NetBoxModelForm
 from utilities.forms.fields import CommentField
