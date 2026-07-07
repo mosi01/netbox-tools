@@ -373,12 +373,20 @@
     {% endif %}
 
 </div>
+
+<style>
+    .port-row.table-secondary {
+        opacity: 0.65;
+    }
+</style>
+
 {% endblock %}
 {% block javascript %}
 {{ block.super }}
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    
     function updateRowState(row) {
 
         const checkbox = row.querySelector(".port-selector");
@@ -393,18 +401,20 @@ document.addEventListener("DOMContentLoaded", function() {
     
             element.disabled = !enabled;
     
-            if (enabled) {
-                element.classList.remove("bg-light");
+            if (!enabled) {
+                element.style.pointerEvents = "none";
+                element.style.opacity = "0.5";
             } else {
-                element.classList.add("bg-light");
+                element.style.pointerEvents = "";
+                element.style.opacity = "";
+            }
+    
+            if ($(element).hasClass("select2")) {
+                $(element).prop("disabled", !enabled);
             }
         });
     
-        if (enabled) {
-            row.classList.remove("table-secondary");
-        } else {
-            row.classList.add("table-secondary");
-        }
+        row.style.opacity = enabled ? "1" : "0.6";
     }
     
     document.querySelectorAll(".port-row").forEach(function(row) {
@@ -508,9 +518,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-.port-row.table-secondary {
-    opacity: 0.65;
-}
+
     
 </script>
 
