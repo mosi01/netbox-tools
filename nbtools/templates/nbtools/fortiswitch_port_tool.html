@@ -222,7 +222,7 @@
                             <td>
                                 
                                 <select name="allowed_vlans__{{ p.port_name }}"
-                                        class="form-select form-select-sm select2 port-configurable"
+                                        class="form-select form-select-sm port-configurable"
                                         multiple>
                                     {% for vlan in available_vlans %}
                                         <option value="{{ vlan.id }}"
@@ -386,62 +386,37 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    
-    function updateRowState(row) {
 
+    function updateRowState(row) {
         const checkbox = row.querySelector(".port-selector");
-    
-        if (!checkbox) {
-            return;
-        }
-    
+        if (!checkbox) return;
+
         const enabled = checkbox.checked;
-    
+
         row.querySelectorAll(".port-configurable").forEach(function(element) {
-    
             element.disabled = !enabled;
-    
-            if (!enabled) {
-                element.style.pointerEvents = "none";
-                element.style.opacity = "0.5";
-            } else {
-                element.style.pointerEvents = "";
-                element.style.opacity = "";
-            }
-    
-            if ($(element).hasClass("select2")) {
-                $(element).prop("disabled", !enabled);
-            }
         });
-    
+
+        row.classList.toggle("table-secondary", !enabled);
         row.style.opacity = enabled ? "1" : "0.6";
     }
-    
+
     document.querySelectorAll(".port-row").forEach(function(row) {
-    
         updateRowState(row);
-    
+
         const checkbox = row.querySelector(".port-selector");
-    
         if (checkbox) {
             checkbox.addEventListener("change", function() {
                 updateRowState(row);
             });
         }
     });
-    
-    $('.select2').select2({
-        width: '100%',
-        closeOnSelect: false,
-        placeholder: 'Select VLAN(s)'
-    });
 
     function cssEscape(value) {
         if (window.CSS && window.CSS.escape) {
             return window.CSS.escape(value);
         }
-    
-        return value;
+        return value.replace(/"/g, '\\"');
     }
 
     function setNativeVlan(portName, nativeVlan) {
@@ -449,10 +424,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'select[name="native_vlan__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) {
-            return;
-        }
-
+        if (!element) return;
         element.value = nativeVlan || "";
     }
 
@@ -461,9 +433,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'select[name="allowed_vlans__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) {
-            return;
-        }
+        if (!element) return;
 
         const wanted = allowedVlans || [];
 
@@ -471,7 +441,7 @@ document.addEventListener("DOMContentLoaded", function() {
             option.selected = wanted.includes(option.value);
         });
 
-        $(element).trigger('change');
+        element.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
     function setDescription(portName, description) {
@@ -479,10 +449,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const selector = 'input[name="description__' + escapedPortName + '"]';
         const element = document.querySelector(selector);
 
-        if (!element) {
-            return;
-        }
-
+        if (!element) return;
         element.value = description || "";
     }
 
@@ -491,10 +458,8 @@ document.addEventListener("DOMContentLoaded", function() {
             const portName = this.dataset.portName;
             const selectedOption = this.options[this.selectedIndex];
 
-            if (!selectedOption) {
-                return;
-            }
-            
+            if (!selectedOption) return;
+
             if (!selectedOption.value) {
                 return;
             }
@@ -517,9 +482,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 });
-
-
-    
 </script>
 
 {% endblock %}
