@@ -94,7 +94,12 @@ urlpatterns = [
         views.FortiSwitchPortConfigurationDeleteView.as_view(),
         name="fortiswitchportconfiguration_delete",
     ),
-    
+    path(
+        "fortiswitch-port-configurations/<int:pk>/changelog/",
+        views.FortiSwitchPortConfigurationChangeLogView.as_view(),
+        name="fortiswitchportconfiguration_changelog",
+    ),
+
     
     
     # ------------------------------------------------------------------
