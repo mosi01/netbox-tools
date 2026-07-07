@@ -18,7 +18,7 @@ from tenancy.models import Contact
 from dcim.models import Device
 from virtualization.models import VirtualMachine
 
-from .models import Application, Service
+from .models import Application, Service, FortiSwitchPortConfiguration
 
 
 class ServiceFilterSet(NetBoxModelFilterSet):
@@ -129,3 +129,12 @@ class ApplicationFilterSet(NetBoxModelFilterSet):
             | models.Q(display_name__icontains=value)
             | models.Q(description__icontains=value)
         )
+
+
+class FortiSwitchPortConfigurationFilterSet(django_filters.FilterSet):
+
+    name = django_filters.CharFilter(lookup_expr="icontains")
+
+    class Meta:
+        model = FortiSwitchPortConfiguration
+        fields = ["name", "site", "enabled"]
