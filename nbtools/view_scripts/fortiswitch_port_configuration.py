@@ -31,9 +31,9 @@ class FortiSwitchPortConfigurationListView(
             self.template_name,
             {
                 "configurations": configurations,
-                "can_add": request.user.has_perm(
-                    "nbtools.configure_fortiswitchportconfiguration"
-                ),
+                "can_add": request.user.has_perm("nbtools.add_fortiswitchportconfiguration"),
+                "can_change": request.user.has_perm("nbtools.change_fortiswitchportconfiguration"),
+                "can_delete": request.user.has_perm("nbtools.delete_fortiswitchportconfiguration"),
             },
         )
 
@@ -43,12 +43,19 @@ class FortiSwitchPortConfigurationEditView(
     PermissionRequiredMixin,
     View,
 ):
-    """
-    Create or edit a predefined FortiSwitch port configuration.
-    """
-
-    permission_required = "nbtools.configure_fortiswitchportconfiguration"
     template_name = "nbtools/fortiswitch_port_configuration_edit.html"
+
+    def has_permission(self):
+        pk = self.kwargs.get("pk")
+
+        if pk:
+            return self.request.user.has_perm(
+                "nbtools.change_fortiswitchportconfiguration"
+            )
+
+        return self.request.user.has_perm(
+            "nbtools.add_fortiswitchportconfiguration"
+        )
 
     def get_object(self, pk):
         if pk:
@@ -96,7 +103,7 @@ class FortiSwitchPortConfigurationDeleteView(
     Delete a predefined FortiSwitch port configuration.
     """
 
-    permission_required = "nbtools.configure_fortiswitchportconfiguration"
+    permission_required = "nbtools.delete_fortiswitchportconfiguration"
     template_name = "nbtools/fortiswitch_port_configuration_delete.html"
 
     def get(self, request, pk):
