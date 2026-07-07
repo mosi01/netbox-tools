@@ -76,22 +76,22 @@ urlpatterns = [
     path(
         "fortiswitch-port-configurations/",
         views.FortiSwitchPortConfigurationListView.as_view(),
-        name="fortiswitch_port_configuration_list",
+        name="fortiswitchportconfiguration_list",
     ),
     path(
         "fortiswitch-port-configurations/add/",
         views.FortiSwitchPortConfigurationEditView.as_view(),
-        name="fortiswitch_port_configuration_add",
+        name="fortiswitchportconfiguration_add",
     ),
     path(
         "fortiswitch-port-configurations/<int:pk>/edit/",
         views.FortiSwitchPortConfigurationEditView.as_view(),
-        name="fortiswitch_port_configuration_edit",
+        name="fortiswitchportconfiguration_edit",
     ),
     path(
         "fortiswitch-port-configurations/<int:pk>/delete/",
         views.FortiSwitchPortConfigurationDeleteView.as_view(),
-        name="fortiswitch_port_configuration_delete",
+        name="fortiswitchportconfiguration_delete",
     ),
 
     
