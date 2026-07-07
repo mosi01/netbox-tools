@@ -10,7 +10,7 @@ from django.conf import settings
 from netbox.forms import NetBoxModelForm
 from utilities.forms.fields import CommentField
 
-from .models import Application, Service, FortiSiteBinding
+from .models import Application, Service, FortiSiteBinding, FortiSwitchPortConfiguration
 
 
 class FortiSiteBindingForm(NetBoxModelForm):
@@ -106,3 +106,66 @@ class ApplicationForm(NetBoxModelForm):
             "tags",
             "description",
         )
+
+
+
+class FortiSwitchPortConfigurationForm(forms.ModelForm):
+    """
+    Administration form for predefined FortiSwitch port configurations.
+
+    The allowed_vlans_text field makes it easier to manage VLANs in the UI
+    while still storing them as a JSON list in the database.
+    """
+
+    allowed_vlans_text = forms.CharField(
+        required=False,
+        label="Allowed VLANs",
+        help_text="Enter one VLAN per line, or comma-separated.",
+        widget=forms.Textarea(attrs={"rows": 5}),
+    )
+
+    class Meta:
+        model = FortiSwitchPortConfiguration
+        fields = (
+            "name",
+            "enabled",
+            "site",
+            "native_vlan",
+            "allowed_vlans_text",
+            "apply_description",
+            "port_description",
+            "match_description",
+            "description",
+            "comments",
+        )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        instance = self.instance
+        if instance and instance.pk:
+            self.fields["allowed_vlans_text"].initial = "\n".join(
+                instance.allowed_vlans or []
+            )
+
+    def clean_allowed_vlans_text(self):
+        raw_value = self.cleaned_data.get("allowed_vlans_text") or ""
+
+        values = []
+        for line in raw_value.replace(",", "\n").splitlines():
+            value = line.strip()
+            if value:
+                values.append(value)
+
+        return values
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.allowed_vlans = self.cleaned_data.get("allowed_vlans_text") or []
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+
+        return instance
+
