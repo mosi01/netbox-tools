@@ -13,7 +13,7 @@
         </h2>
 
         {% if can_add %}
-            {% url 'plugins:nbtools:fortiswitch_port_configuration_add' %}
+            <a href="{% url 'plugins:nbtools:ch_port_configuration_add' %}">
                 Add Configuration
             </a>
         {% endif %}
@@ -81,11 +81,11 @@
                         </td>
 
                         <td>
-                            {% url 'plugins:nbtools:fortiswitch_port_configuration_edit' c.pk %}
+                            <a href="{% url 'plugins:nbtools:fortiswitch_port_configuration_edit' c.pk %}">
                                 Edit
                             </a>
 
-                            {% url 'plugins:nbtools:fortiswitch_port_configuration_delete' c.pk %}
+                             <a href="{% url 'plugins:nbtools:fortiswitch_port_configuration_delete' c.pk %}">
                                 Delete
                             </a>
                         </td>
