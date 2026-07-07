@@ -1,0 +1,33 @@
+{% extends "base/layout.html" %}
+
+{% block title %}Delete FortiSwitch Port Configuration{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <h2 class="mb-4">
+        <i class="mdi mdi-delete"></i>
+        Delete FortiSwitch Port Configuration
+    </h2>
+
+    <div class="alert alert-danger">
+        Are you sure you want to delete
+        <strong>{{ object.name }}</strong>?
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <button type="submit" class="btn btn-danger">
+            Delete
+        </button>
+
+        {% url 'plugins:nbtools:fortiswitch_port_configuration_list' %}
+            Cancel
+        </a>
+    </form>
+
+</div>
+
+{% endblock %}
