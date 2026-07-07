@@ -112,9 +112,9 @@
                     </div>
                 {% endif %}
 
-                <table class="table table-hover table-bordered table-sm align-middle">
+                <table class="table table-hover table-headings">
 
-                    <thead class="table-light">
+                    <thead>
                         <tr>
                             <th style="width:40px"></th>
                             <th>Port</th>
@@ -352,14 +352,23 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function updateRowState(row) {
         const checkbox = row.querySelector(".port-selector");
-        if (!checkbox) {
-            return;
-        }
-
+        if (!checkbox) return;
+    
         const enabled = checkbox.checked;
-
-        row.querySelectorAll(".port-configurable").forEach(function(element) {
-            element.disabled = !enabled;
+    
+        row.querySelectorAll(".port-configurable").forEach(function(el) {
+    
+            // Always disable the actual element
+            el.disabled = !enabled;
+    
+            // Handle NetBox Tom Select (this is the missing piece)
+            if (el.tomselect) {
+                if (enabled) {
+                    el.tomselect.enable();
+                } else {
+                    el.tomselect.disable();
+                }
+            }
         });
     }
 
