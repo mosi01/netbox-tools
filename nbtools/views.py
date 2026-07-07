@@ -29,6 +29,11 @@ from .view_scripts.VM_tool import VMToolView
 # Existing FortiGate / FortiSwitch tools
 from .view_scripts.Fortigate_policy_toolset import FortigatePolicyToolsetView
 from .view_scripts.fortiswitch_port_tool import FortiSwitchPortToolView
+from .view_scripts.foriswitch_port_configuration import (
+    FortiSwitchPortConfigurationListView, 
+    FortiSwitchPortConfigurationEditView, 
+    FortiSwitchPortConfigurationDeleteView,
+)
 
 # FortiSiteBinding CRUD + changelog views
 from .view_scripts.forti_site_binding_views import (
@@ -38,6 +43,8 @@ from .view_scripts.forti_site_binding_views import (
     FortiSiteBindingDeleteView,
     FortiSiteBindingChangeLogView,   # <-- CRITICAL FIX
 )
+
+
 
 logger = logging.getLogger("nbtools")
 
