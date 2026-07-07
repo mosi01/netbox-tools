@@ -142,6 +142,15 @@ class FortiSwitchPortConfigurationForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        
+        # Only allow sites that exist in FortiSiteBinding
+        bound_sites = FortiSiteBinding.objects.values_list("site_id", flat=True)
+
+        self.fields["site"].queryset = Site.objects.filter(
+            id__in=bound_sites
+        )
+
+        
         instance = self.instance
         if instance and instance.pk:
             self.fields["allowed_vlans_text"].initial = "\n".join(
