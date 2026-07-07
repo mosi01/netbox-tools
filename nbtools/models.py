@@ -429,6 +429,14 @@ class FortiSwitchPortConfiguration(NetBoxModel):
 
         super().clean()
 
+        
+        if self.site:
+            if not FortiSiteBinding.objects.filter(site=self.site).exists():
+                raise ValidationError({
+                    "site": "This site is not bound in FortiSiteBinding."
+                })
+
+        
         if self.allowed_vlans is None:
             self.allowed_vlans = []
 
