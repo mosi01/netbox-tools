@@ -471,13 +471,10 @@ class FortiSwitchPortConfiguration(NetBoxModel):
             })
 
     def get_absolute_url(self):
-        """
-        Return the object detail/list URL.
-
-        If you do not create a dedicated detail view for this object, this can
-        safely point to the configuration list view.
-        """
-        return reverse("plugins:nbtools:fortiswitch_port_configuration_list")
+    return reverse(
+        "plugins:nbtools:fortiswitchportconfiguration",
+        kwargs={"pk": self.pk}
+    )
 
     def get_edit_url(self):
         """
