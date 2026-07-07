@@ -183,6 +183,11 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         # Resolve selected objects
         # --------------------------------------------------------------
         site = self._get_site(submitted_data["site_id"])
+        if site and not FortiSiteBinding.objects.filter(site=site, enabled=True).exists():
+            errors_list.append("Selected site is not bound in FortiSiteBinding.")            
+            site = None
+            device_id = ""
+
         device = self._get_device(submitted_data["device_id"])
 
         if not site:
@@ -504,15 +509,23 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 {"id": 20, "label": "20"},
             ]
         """
-        sites = Site.objects.all().order_by("name")
+        bound_site_ids = FortiSiteBinding.objects.filter(
+            enabled=True
+        ).values_list("site_id", flat=True)
+        
+        sites = Site.objects.filter(
+            id__in=bound_site_ids
+        ).order_by("name")
 
         selected_site = self._get_site(site_id)
         selected_device = self._get_device(device_id)
 
-        if selected_site:
+        
+        if selected_site and FortiSiteBinding.objects.filter(site=selected_site, enabled=True).exists():
             devices = Device.objects.filter(site_id=selected_site.id).order_by("name")
         else:
             devices = Device.objects.none()
+
 
         port_configurations = self._get_port_configurations_for_site(
             site=selected_site,
