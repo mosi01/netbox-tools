@@ -57,6 +57,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render
 from django.views import View
 from django.db.models import Q
+.filter(Q(site__isnull=True) | Q(site=site))
 
 from dcim.models import Device, Interface, Site
 
@@ -412,7 +413,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         if not str(configuration_id).isdigit():
             return None
 
-        if not user.has_perm("nbtools.use_fortiswitchportconfiguration"):
+        if not user.has_perm("nbtools.view_fortiswitchportconfiguration"):
             return None
 
         return (
@@ -461,7 +462,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         - Site-specific configurations are available only for that site.
         """
 
-        if not user or not user.has_perm("nbtools.use_fortiswitchportconfiguration"):
+        if not user or not user.has_perm("nbtools.view_fortiswitchportconfiguration"):
             return FortiSwitchPortConfiguration.objects.none()
 
         if not site:
@@ -522,10 +523,16 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         return {
             "port_configurations": port_configurations,
             "can_use_port_configurations": request.user.has_perm(
-                "nbtools.use_fortiswitchportconfiguration"
+                "nbtools.view_fortiswitchportconfiguration"
             ),
-            "can_configure_port_configurations": request.user.has_perm(
-                "nbtools.configure_fortiswitchportconfiguration"
+            "can_add_port_configurations": request.user.has_perm(
+                "nbtools.add_fortiswitchportconfiguration"
+            ),
+            "can_change_port_configurations": request.user.has_perm(
+                "nbtools.change_fortiswitchportconfiguration"
+            ),
+            "can_delete_port_configurations": request.user.has_perm(
+                "nbtools.delete_fortiswitchportconfiguration"
             ),
             "sites": sites,
             "devices": devices,
