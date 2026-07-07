@@ -56,10 +56,11 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render
 from django.views import View
+from django.db.models import Q
 
 from dcim.models import Device, Interface, Site
 
-from nbtools.models import FortiSiteBinding
+from nbtools.models import FortiSiteBinding, FortiSwitchPortConfiguration
 from nbtools.services.forti_api import FortiAPIClient
 
 logger = logging.getLogger("nbtools")
@@ -124,6 +125,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             device=device,
             warnings_list=warnings_list,
             errors_list=errors_list,
+            user=request.user,
         )
 
         # Build the available VLAN list used by the UI controls.
@@ -135,6 +137,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         )
 
         context = self._build_context(
+            request=request,
             site_id=site_id,
             device_id=device_id,
             submitted_data={},
@@ -206,6 +209,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             device=device,
             warnings_list=warnings_list,
             errors_list=[],
+            user=request.user,
         )
 
         available_vlans = self._load_available_vlans(
@@ -233,6 +237,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
 
         if errors_list:
             context = self._build_context(
+                request=request,
                 site_id=submitted_data["site_id"],
                 device_id=submitted_data["device_id"],
                 submitted_data=submitted_data,
@@ -258,6 +263,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 desired_state = self._extract_desired_state_for_port(
                     request=request,
                     port_name=port_name,
+                    site=site,
                 )
 
                 port_result = self._handle_port_action(
@@ -294,6 +300,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 device=device,
                 warnings_list=warnings_list,
                 errors_list=[],
+                user=request.user,
             )
 
             available_vlans = self._load_available_vlans(
@@ -308,6 +315,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
             errors_list.append(f"Unexpected error: {exc}")
 
         context = self._build_context(
+            request=request,
             site_id=submitted_data["site_id"],
             device_id=submitted_data["device_id"],
             submitted_data=submitted_data,
@@ -319,11 +327,161 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         )
         return render(request, self.template_name, context)
 
+    def _find_matching_port_configuration(self, actual_state, port_configurations):
+        """
+        Determine whether the live Forti port state matches one of the
+        predefined configurations available for this site.
+
+        Description matching is only enforced if the configuration explicitly
+        has match_description enabled.
+        """
+
+        actual = self._normalise_state_for_profile_match(actual_state)
+
+        for configuration in port_configurations:
+            expected = {
+                "native_vlan": configuration.native_vlan or None,
+                "allowed_vlans": sorted([
+                    str(v).strip()
+                    for v in (configuration.allowed_vlans or [])
+                    if v not in (None, "")
+                ]),
+                "description": (
+                    configuration.port_description
+                    if configuration.port_description != ""
+                    else None
+                ),
+            }
+
+            if actual["native_vlan"] != expected["native_vlan"]:
+                continue
+
+            if actual["allowed_vlans"] != expected["allowed_vlans"]:
+                continue
+
+            if configuration.match_description:
+                if actual["description"] != expected["description"]:
+                    continue
+
+            return configuration
+
+        return None
+
+  
+  
+    @staticmethod
+    def _normalise_state_for_profile_match(state):
+        """
+        Normalise state values before comparing live Forti state with a
+        predefined port configuration.
+        """
+
+        native_vlan = state.get("native_vlan")
+        if native_vlan in ("", []):
+            native_vlan = None
+        elif native_vlan is not None:
+            native_vlan = str(native_vlan).strip()
+
+        allowed_vlans = state.get("allowed_vlans") or []
+        allowed_vlans = [
+            str(v).strip()
+            for v in allowed_vlans
+            if v not in (None, "")
+        ]
+
+        description = state.get("description")
+        if description == "":
+            description = None
+
+        return {
+            "native_vlan": native_vlan,
+            "allowed_vlans": sorted(allowed_vlans),
+            "description": description,
+        }
+      
+  
+    def _get_selected_port_configuration(self, configuration_id, site, user):
+        """
+        Resolve a selected predefined port configuration and ensure the user
+        is allowed to use it for the selected site.
+        """
+
+        if not configuration_id:
+            return None
+
+        if not str(configuration_id).isdigit():
+            return None
+
+        if not user.has_perm("nbtools.use_fortiswitchportconfiguration"):
+            return None
+
+        return (
+            FortiSwitchPortConfiguration.objects
+            .filter(pk=configuration_id, enabled=True)
+            .filter(Q(site__isnull=True) | Q(site=site))
+            .first()
+        )
+  
+    @staticmethod
+    def _desired_state_from_port_configuration(configuration):
+        """
+        Convert a predefined port configuration into the same desired_state
+        shape produced by manual UI input.
+        """
+
+        if not configuration:
+            return None
+
+        desired_state = {
+            "native_vlan": configuration.native_vlan or None,
+            "allowed_vlans": configuration.allowed_vlans or [],
+            "description": None,
+        }
+
+        if configuration.apply_description:
+            desired_state["description"] = (
+                configuration.port_description
+                if configuration.port_description != ""
+                else None
+            )
+
+        return desired_state
+
+
+  
+    @staticmethod
+    def _get_port_configurations_for_site(site, user):
+        """
+        Return enabled predefined port configurations available for a site.
+
+        Rules
+        -----
+        - User must have explicit permission to use configurations.
+        - Global configurations are available for all sites.
+        - Site-specific configurations are available only for that site.
+        """
+
+        if not user or not user.has_perm("nbtools.use_fortiswitchportconfiguration"):
+            return FortiSwitchPortConfiguration.objects.none()
+
+        if not site:
+            return FortiSwitchPortConfiguration.objects.none()
+
+        return (
+            FortiSwitchPortConfiguration.objects
+            .filter(enabled=True)
+            .filter(Q(site__isnull=True) | Q(site=site))
+            .select_related("site")
+            .order_by("site__name", "name")
+        )
+
+  
     # ------------------------------------------------------------------
     # Bulk page context helper
     # ------------------------------------------------------------------
     def _build_context(
         self,
+        request,
         site_id: str,
         device_id: str,
         submitted_data: dict,
@@ -356,7 +514,19 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         else:
             devices = Device.objects.none()
 
+        port_configurations = self._get_port_configurations_for_site(
+            site=selected_site,
+            user=getattr(self, "_current_user", None),
+        )
+      
         return {
+            "port_configurations": port_configurations,
+            "can_use_port_configurations": request.user.has_perm(
+                "nbtools.use_fortiswitchportconfiguration"
+            ),
+            "can_configure_port_configurations": request.user.has_perm(
+                "nbtools.configure_fortiswitchportconfiguration"
+            ),
             "sites": sites,
             "devices": devices,
             "selected_site": selected_site,
@@ -372,6 +542,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 "deploy": "Push desired values to FortiSwitch. If dry_run is checked, only preview payloads.",
                 "sync": "Read current FortiSwitch state and refresh the page.",
             },
+           
         }
 
     # ------------------------------------------------------------------
@@ -465,6 +636,7 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
         device,
         warnings_list,
         errors_list,
+        user=None,
     ):
         """
         Load FortiSwitch ports using raw Forti data.
@@ -494,6 +666,11 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                 port_rows = raw_ports
     
             enriched_rows = []
+
+            port_configurations = self._get_port_configurations_for_site(
+                site=site,
+                user=user,
+            )
     
             for row in port_rows:
                 if not isinstance(row, dict):
@@ -518,12 +695,28 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
                                 allowed_vlans.append(vlan_name)
     
                 interface = self._get_interface_by_name(device, port_name)
-    
+
+                actual_state = {
+                    "native_vlan": native_vlan,
+                    "allowed_vlans": allowed_vlans,
+                    "description": row.get("description"),
+                }
+
+                matching_configuration = self._find_matching_port_configuration(
+                    actual_state=actual_state,
+                    port_configurations=port_configurations,
+                )
+              
                 enriched_rows.append({
                     "port_name": port_name,
                     "native_vlan": native_vlan,
                     "allowed_vlans": allowed_vlans,
                     "description": row.get("description"),
+                    "matched_port_configuration_id": (
+                        matching_configuration.id
+                        if matching_configuration
+                        else None
+                    ),
                     "netbox_interface_exists": bool(interface),
                     "netbox_connected": self._is_connected(interface) if interface else False,
                     "uplink_candidate": self._is_uplink_candidate(interface) if interface else False,
@@ -665,21 +858,59 @@ class FortiSwitchPortToolView(LoginRequiredMixin, View):
     # Per-port desired state extraction
     # ------------------------------------------------------------------
     
-    def _extract_desired_state_for_port(self, request, port_name: str) -> dict:
-    
+    def _extract_desired_state_for_port(self, request, port_name: str, site) -> dict:
+        """
+        Extract desired state for a port.
+
+        Priority
+        --------
+        1. If a predefined port configuration is selected, use that.
+        2. Otherwise, use the manual Native VLAN / Allowed VLANs / Description fields.
+        """
+
+        configuration_id = request.POST.get(
+            f"port_configuration__{port_name}",
+            "",
+        ).strip()
+
+        configuration = self._get_selected_port_configuration(
+            configuration_id=configuration_id,
+            site=site,
+            user=request.user,
+        )
+
+        if configuration:
+            desired_state = self._desired_state_from_port_configuration(configuration)
+
+            # If the profile does not control description, keep the current
+            # manual description field as the desired value. This lets you use
+            # a predefined VLAN profile without overwriting per-port descriptions.
+            if not configuration.apply_description:
+                description = request.POST.get(
+                    f"description__{port_name}",
+                    "",
+                ).strip()
+
+                desired_state["description"] = (
+                    description
+                    if description != ""
+                    else None
+                )
+
+            return desired_state
+
         native_vlan = request.POST.get(f"native_vlan__{port_name}", "").strip()
         description = request.POST.get(f"description__{port_name}", "").strip()
-    
+
         allowed_vlan_values = request.POST.getlist(f"allowed_vlans__{port_name}")
-    
+
         if not allowed_vlan_values:
             tmp = request.POST.get(f"allowed_vlans__{port_name}", "").strip()
             if tmp:
                 allowed_vlan_values = [tmp]
             else:
                 allowed_vlan_values = []
-    
-        
+
         return {
             "native_vlan": native_vlan or None,
             "allowed_vlans": allowed_vlan_values,
